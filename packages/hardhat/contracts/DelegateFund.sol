@@ -17,14 +17,14 @@ contract DelegateFund is Ownable {
   // Enough time for devs to react for the withdrawal action
   uint256 public immutable delay = 2 days;
   
-  // Events //
+  /// --- Events ---
 
   event WithdrawalInitialisation(address to, uint256 amount, uint256 timeOfExecution);
   event WithdrawalSuccessful(address to, uint256 amount);
 
-  // do we really need here a constructor? 
+  // do we really need here a constructor?
   
-  // Functions //
+  /// --- Functions ---
   
   /** 
   * @dev Initialisation withdrawal process
