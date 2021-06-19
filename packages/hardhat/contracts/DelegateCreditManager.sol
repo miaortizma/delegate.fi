@@ -22,7 +22,6 @@ contract DelegateCreditManager {
   ILendingPool lendingPool;
   IProtocolDataProvider provider;
   
-
   // Tracks delegators info, useful more dashboards in f/e and inner accounting
   mapping (address => DelegatorInfo) public delegators;
   mapping(address => uint256) public totalDelegatedAmounts;
@@ -42,12 +41,21 @@ contract DelegateCreditManager {
     (, , address variableDebtTokenAddress) = provider.getReserveTokensAddresses(_asset);
     
     IDebtToken(variableDebtTokenAddress).approveDelegation(address(this), _amount);
+    
+    DelegatorInfo storage delegator = delegators[msg.sender];
 
-    // update the total delgated amount, also update the delegators info.
-    totalDelegatedAmounts[_asset].add(_amount);
+    if (_amount > delegator.amountDelegated) {
+      uint256 diffAllowance = _amount.sub(delegator.amountDelegated);
+
+      totalDelegatedAmounts[_asset].add(diffAllowance);
+    } else {
+      uint256 diffAllowance = delegator.amountDelegated.sub(_amount);
+
+      totalDelegatedAmounts[_asset].sub(diffAllowance);
+    }
     
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
-    delegators[msg.sender].amountDelegated = _amount;
+    delegator.amountDelegated = _amount;
   }
 
   function borrowablePowerAvailable() internal view returns (uint256) {
