@@ -11,11 +11,19 @@ import "./interface/IDebtToken.sol";
 import "./interface/IProtocolDataProvider.sol";
 
 contract DelegateCreditManager {
-  using SafeERC20 for IERC20;
   using SafeMath for uint256;
+  using SafeERC20 for IERC20;
+  
+  struct DelegatorInfo {
+    uint256 amountDelegated;
+    uint256 earnings;
+  }
 
   ILendingPool lendingPool;
   IProtocolDataProvider provider;
+  
+  // Tracks delegators info, useful more dashboards in f/e and inner accounting
+  mapping (address => DelegatorInfo) public delegators;
 
   struct DelegatorInfo {
     uint256 amountDelegated;
@@ -26,20 +34,34 @@ contract DelegateCreditManager {
 
   constructor(ILendingPool _lendingPool) {
     lendingPool = _lendingPool;
-    provider = _dataProvider;
+    provider = _provider;
   }
 
   /**
    * @dev Allows user to delegate to our protocol (first point of contact user:protocol)
    * @param _asset The asset which is delegated
    * @param _amount The amount delegated to us to manage
+   * @notice we do not emit event as  `approveDelegation` emits -> BorrowAllowanceDelegated
   **/
-  function delegateCreditLine(address _asset, uint256 _amount) {
+  function delegateCreditLine(address _asset, uint256 _amount) external {
     (, , address variableDebtTokenAddress) = provider.getReserveTokensAddresses(_asset);
     
     IDebtToken(variableDebtTokenAddress).approveDelegation(address(this), _amount);
+
     // update the total delgated amount, also update the delegators info.
     totalDelegatedAmounts[_asset].add(_amount);
-    delegators[msg.sender].amountDelegated.add(_amount);
+    
+    // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
+    delegators[msg.sender].amountDelegated = _amount;
+
+    // Do we need this temporary storage?
+    // DelegatorInfo storage delegator = delegators[msg.sender];
+    // delegator.amountDelegated = _amount;
+  }
+
+  function borrowablePowerAvailable() internal view returns (uint256) {
+    (, , uint256 availableBorrowsETH, , ,  ) = lendingPool.getUserAccountData(address(this));
+
+    return availableBorrowsETH;
   }
 }
