@@ -24,7 +24,7 @@ contract DelegateCreditManager {
   // Tracks delegators info, useful more dashboards in f/e and inner accounting
   mapping (address => DelegatorInfo) public delegators;
 
-  constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider) {
+  constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider) public {
     lendingPool = _lendingPool;
     provider = _provider;
   }
@@ -46,8 +46,8 @@ contract DelegateCreditManager {
     delegator.amountDelegated = _amount;
   }
 
-  function borrowablePowerAvailable() internal returns (uint256) {
-    (, , uint256 availableBorrowsETH, , ,  ) = ILendingPool.getUserAccountData(address(this));
+  function borrowablePowerAvailable() internal view returns (uint256) {
+    (, , uint256 availableBorrowsETH, , ,  ) = lendingPool.getUserAccountData(address(this));
 
     return availableBorrowsETH;
   }

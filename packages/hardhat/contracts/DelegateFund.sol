@@ -22,8 +22,7 @@ contract DelegateFund is Ownable {
   event WithdrawalInitialisation(address to, uint256 amount, uint256 timeOfExecution);
   event WithdrawalSuccessful(address to, uint256 amount);
 
-  constructor() {
-  }
+  // do we really need here a constructor? 
   
   // Functions //
   
