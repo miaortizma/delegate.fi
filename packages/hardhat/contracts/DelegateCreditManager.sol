@@ -10,7 +10,7 @@ import "./interface/ILendingPool.sol";
 import "./interface/IDebtToken.sol";
 import "./interface/IProtocolDataProvider.sol";
 
-contract DelegateCreditManager {
+contract DelegateCreditManager is Ownable {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
   
@@ -26,7 +26,7 @@ contract DelegateCreditManager {
   mapping (address => DelegatorInfo) public delegators;
   mapping(address => uint256) public totalDelegatedAmounts;
 
-  constructor(ILendingPool _lendingPool) {
+  constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider) {
     lendingPool = _lendingPool;
     provider = _provider;
   }
@@ -57,6 +57,8 @@ contract DelegateCreditManager {
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
     delegator.amountDelegated = _amount;
   }
+
+  function deployCapital() 
 
   function borrowablePowerAvailable() internal view returns (uint256) {
     (, , uint256 availableBorrowsETH, , ,  ) = lendingPool.getUserAccountData(address(this));
