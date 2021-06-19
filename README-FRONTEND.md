@@ -1,0 +1,111 @@
+## Quickstart
+
+```bash
+git clone https://github.com/petrovska-petro/delegate.fi
+
+cd delegate.fi
+```
+
+```bash
+
+yarn install
+
+```
+
+### Local development
+
+```bash
+
+yarn start
+
+```
+
+In a second terminal window run:
+
+```bash
+
+yarn fork
+
+```
+
+This branch uses a local fork of mainnet, which is easy to do with Hardhat ([see here to learn more](https://hardhat.org/guides/mainnet-forking.html)). The template configuration uses an Infura node, however this is not a full archive node, so it will only work for an hour or so. To get a long-lasting fork...
+
+- Go to alchemyapi.io and get an API key for mainnet
+- Replace the Infura URL with an Alchemy URL with your API key (i.e. https://eth-mainnet.alchemyapi.io/v2/<API_KEY_HERE>) into the `fork` script on line 28 of /packages/hardhat/package.json
+
+In a third terminal window run:
+
+```bash
+yarn test
+yarn deploy
+
+```
+
+> This tests then deploys the Aave Ape contract
+
+📱 Open http://localhost:3000 to see the app!
+
+### Running on Kovan
+
+To run the frontend on Kovan, add the following to your .env file in `packages/react-app/`
+
+```
+REACT_APP_PROVIDER=https://kovan.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad
+REACT_APP_NETWORK=kovan
+```
+
+To use the already-deployed Aave Ape contract, unzip the `kovan-contracts.zip` folder
+To deploy your own...
+
+```
+yarn generate
+yarn account
+```
+
+Send your newly generated account some Kovan ETH, then run...
+
+```
+yarn workspace @scaffold-eth/hardhat hardhat --network kovan run scripts/deploy.js
+yarn workspace @scaffold-eth/hardhat hardhat run scripts/publish.js
+```
+
+### Running on Mainnet
+
+To run the frontend on mainnet, add the following to your .env file in `packages/react-app/`
+
+```
+REACT_APP_PROVIDER=https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad
+REACT_APP_NETWORK=mainnet
+```
+
+**The Ape is not currently deployed on Mainnet**
+
+## The components
+
+🎶 Quick note! The mainnet fork can take a little while to get going - you may need to refresh several times before everything is cached and the app is fast and loading 💨💨💨
+
+### Lend
+
+This component is a lightweight take on the Aave V2 market. You can view your overall position, key market stats, and your detailed asset position, viewing in native / ETH / USD. You can also make the key Aave transactions (deposit, withdraw, borrow, repay).
+
+Data is fetched via a custom `useAaveData()` hook. Data is sourced from Aave subgraphs for market data, and on-chain for user data (to enable local development)
+
+## Other components
+
+### Swap
+
+This is a minimum viable Uniswap UI (see more detail [here](https://azfuller20.medium.com/swap-with-uniswap-wip-f15923349b3d)), using token-lists. All you need to instantiate this is a provider with a signer (userProvider in scaffold-eth works fine!)
+
+- You can update the token-list for the Swap component in the "Hints" tab
+- Kudos to @ironsoul for the fresh Debounce hook
+
+### SnatchToken
+
+One of the benefits of using a mainnet fork is that you can impersonate Ethereum accounts you don't own, which is great for getting your hands on tokens! Building on top of an initial component by [@ironsoul](https://twitter.com/ironsoul0), this lets you specify the target, the token you are after and the amount you would like.
+
+- Your target will need enough of the token, as well as some ETH to pay for the gas fee.
+- The list of tokens comes from the [1inch tokenlist](https://tokenlists.org/token-list?url=tokens.1inch.eth)
+
+### Approver
+
+A minimal component for Approving specific accounts to spend your ERC20s, with mainnet tokens selectable from a tokenlist, plus an option to manually enter the ERC20 of your choice.
