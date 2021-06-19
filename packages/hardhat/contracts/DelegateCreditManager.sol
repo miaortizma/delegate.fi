@@ -22,15 +22,15 @@ contract DelegateCreditManager {
   ILendingPool lendingPool;
   IProtocolDataProvider provider;
   
-  // Tracks delegators info, useful more dashboards in f/e and inner accounting
-  mapping (address => DelegatorInfo) public delegators;
 
   struct DelegatorInfo {
     uint256 amountDelegated;
     uint256 earnings;
   }
+
+  // Tracks delegators info, useful more dashboards in f/e and inner accounting
+  mapping (address => DelegatorInfo) public delegators;
   mapping(address => uint256) public totalDelegatedAmounts;
-  mapping(address => DelegatorInfo) public delegators;
 
   constructor(ILendingPool _lendingPool) {
     lendingPool = _lendingPool;
@@ -53,10 +53,6 @@ contract DelegateCreditManager {
     
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
     delegators[msg.sender].amountDelegated = _amount;
-
-    // Do we need this temporary storage?
-    // DelegatorInfo storage delegator = delegators[msg.sender];
-    // delegator.amountDelegated = _amount;
   }
 
   function borrowablePowerAvailable() internal view returns (uint256) {
