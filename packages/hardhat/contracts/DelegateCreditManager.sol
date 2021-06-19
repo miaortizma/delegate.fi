@@ -58,7 +58,19 @@ contract DelegateCreditManager is Ownable {
     delegator.amountDelegated = _amount;
   }
 
-  function deployCapital() 
+  function deployCapital(address _asset) external onlyOwner {
+    uint256 capitalAvailable = totalDelegatedAmounts[_asset];
+    
+    // 1. Check which strategy is available working with this kind of asset
+
+    // 2. Check how much has been deployed in the strategies
+
+    // 3. Grab the difference between the total available and deployed
+
+    // 4. Borrow the difference from the lendingPool of AAVE
+
+    // 5. Deposit on the strategy!
+  }
 
   function borrowablePowerAvailable() internal view returns (uint256) {
     (, , uint256 availableBorrowsETH, , ,  ) = lendingPool.getUserAccountData(address(this));
