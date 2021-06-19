@@ -24,9 +24,9 @@ contract DelegateCreditManager {
   // Tracks delegators info, useful more dashboards in f/e and inner accounting
   mapping (address => DelegatorInfo) public delegators;
 
-  constructor(ILendingPool _lendingPool) {
+  constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider) {
     lendingPool = _lendingPool;
-    provider = _dataProvider;
+    provider = _provider;
   }
 
   /**
@@ -35,7 +35,7 @@ contract DelegateCreditManager {
    * @param _amount The amount delegated to us to manage
    * @notice we do not emit event as  `approveDelegation` emits -> BorrowAllowanceDelegated
   **/
-  function delegateCreditLine(address _asset, uint256 _amount) {
+  function delegateCreditLine(address _asset, uint256 _amount) external {
     (, , address variableDebtTokenAddress) = provider.getReserveTokensAddresses(_asset);
     
     IDebtToken(variableDebtTokenAddress).approveDelegation(address(this), _amount);
@@ -44,5 +44,11 @@ contract DelegateCreditManager {
     
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
     delegator.amountDelegated = _amount;
+  }
+
+  function borrowablePowerAvailable() internal returns (uint256) {
+    (, , uint256 availableBorrowsETH, , ,  ) = ILendingPool.getUserAccountData(address(this));
+
+    return availableBorrowsETH;
   }
 }
