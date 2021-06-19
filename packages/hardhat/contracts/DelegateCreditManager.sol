@@ -23,11 +23,6 @@ contract DelegateCreditManager {
   IProtocolDataProvider provider;
   
 
-  struct DelegatorInfo {
-    uint256 amountDelegated;
-    uint256 earnings;
-  }
-
   // Tracks delegators info, useful more dashboards in f/e and inner accounting
   mapping (address => DelegatorInfo) public delegators;
   mapping(address => uint256) public totalDelegatedAmounts;
