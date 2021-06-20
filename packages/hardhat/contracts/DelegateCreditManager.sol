@@ -26,9 +26,6 @@ contract DelegateCreditManager is Ownable {
   IProtocolDataProvider provider;
   IStrategy strategy;
   
-  // Tracks delegators info, useful more dashboards in f/e and inner accounting
-  address[] delegatorAddresses;
-  
   mapping (address => DelegatorInfo) public delegators;
   mapping(address => uint256) public totalDelegatedAmounts;
 
@@ -58,25 +55,25 @@ contract DelegateCreditManager is Ownable {
     
     DelegatorInfo storage delegator = delegators[msg.sender];
 
-    if(delegator.amountDelegated == 0) {
-      delegatorAddresses.push(msg.sender);
-    }
-
     if (_amount > delegator.amountDelegated) {
       uint256 diffAllowance = _amount.sub(delegator.amountDelegated);
 
       totalDelegatedAmounts[_asset].add(diffAllowance);
+
+      deployCapital(_asset, msg.sender);
     } else {
       uint256 diffAllowance = delegator.amountDelegated.sub(_amount);
 
       totalDelegatedAmounts[_asset].sub(diffAllowance);
+
+      // some sort of unwinding should be added here, perhaps method called `unwind(diffAllowance, msg.sender)`, repays back debt
     }
     
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
     delegator.amountDelegated = _amount;
   }
 
-  function deployCapital(address _asset) external onlyOwner {
+  function deployCapital(address _asset, address _delegator) internal onlyOwner {
     uint256 capitalAvailable = totalDelegatedAmounts[_asset];
     
     // 1. Check which strategy is available working with this kind of asset
@@ -86,16 +83,14 @@ contract DelegateCreditManager is Ownable {
     // 3. Grab the difference between the total available and deployed
     
     // 4. Borrow the difference from the lendingPool of AAVE
-    address onBehalfOf = delegatorAddresses[0];
-    
-    DelegatorInfo storage delegator = delegators[onBehalfOf];
+    DelegatorInfo storage delegator = delegators[_delegator];
     
     if (delegator.amountDelegated > delegator.amountDeployed) {
       uint256 amountToBorrow = delegator.amountDelegated.sub(delegator.amountDeployed);
       
       require(amountToBorrow > 0, "0!");
 
-      lendingPool.borrow(_asset, amountToBorrow, 2, 0, onBehalfOf);
+      lendingPool.borrow(_asset, amountToBorrow, 2, 0, _delegator);
 
       delegator.amountDeployed = delegator.amountDeployed.add(amountToBorrow);
 
