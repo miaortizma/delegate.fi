@@ -21,12 +21,17 @@ contract DelegateCreditManager is Ownable {
     uint256 earnings;
     uint256 amountDeployed;
   }
+  
+  struct StrategyInfo {
+    address strategyAddress;
+    uint256 amountWorking;
+  }
 
   ILendingPool lendingPool;
   IProtocolDataProvider provider;
-  IStrategy strategy;
   
   mapping (address => DelegatorInfo) public delegators;
+  mapping(address => StrategyInfo) public strategies; // perhaps, for simplicity one strategy per asset
   mapping(address => uint256) public totalDelegatedAmounts;
 
   constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider) public {
@@ -35,11 +40,15 @@ contract DelegateCreditManager is Ownable {
   }
   
   /**
-   * @dev Sets the new strategy where funds will be deployed
+   * @dev Sets the new strategy where funds will be deployed for a specific asset type
+   * @param _asset Asset which the strategy will use for generating $
    * @param _strategy The new strategy address
   **/
-  function setStrategy(address _strategy) external onlyOwner {
-    strategy = IStrategy(address(_strategy));
+  function setNewStrategy(address _asset, address _strategy) external onlyOwner {
+    strategies[_asset] = StrategyInfo({
+      strategyAddress: _strategy,
+      amountWorking: uint256(0)
+    });
   }
 
   /**
@@ -72,17 +81,18 @@ contract DelegateCreditManager is Ownable {
     // no need for sub || add operation, as approveDelegation auto-updates either increasing or decreasing allowance
     delegator.amountDelegated = _amount;
   }
+  
 
+  /**
+   * @dev Deploys the new delegated inmediatly into the strategy
+   * @param _asset The asset which is going to be deployed
+   * @param _delegator Delegator address, use to update mapping
+  **/
   function deployCapital(address _asset, address _delegator) internal onlyOwner {
-    uint256 capitalAvailable = totalDelegatedAmounts[_asset];
-    
-    // 1. Check which strategy is available working with this kind of asset
+    StrategyInfo storage strategyInfo = strategies[_asset];
 
-    // 2. Check how much has been deployed in the strategies
+    require(strategyInfo.strategyAddress != address(0), "notSet!");
 
-    // 3. Grab the difference between the total available and deployed
-    
-    // 4. Borrow the difference from the lendingPool of AAVE
     DelegatorInfo storage delegator = delegators[_delegator];
     
     if (delegator.amountDelegated > delegator.amountDeployed) {
@@ -94,14 +104,9 @@ contract DelegateCreditManager is Ownable {
 
       delegator.amountDeployed = delegator.amountDeployed.add(amountToBorrow);
 
-      // 5. Deposit on the strategy!
-      strategy.deposit(amountToBorrow);
+      IStrategy(strategyInfo.strategyAddress).deposit(amountToBorrow);
+
+      strategyInfo.amountWorking = strategyInfo.amountWorking.add(amountToBorrow);
     }
-  }
-
-  function borrowablePowerAvailable() internal view returns (uint256) {
-    (, , uint256 availableBorrowsETH, , ,  ) = lendingPool.getUserAccountData(address(this));
-
-    return availableBorrowsETH;
   }
 }
