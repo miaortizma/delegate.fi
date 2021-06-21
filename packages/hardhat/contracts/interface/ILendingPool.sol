@@ -9,6 +9,13 @@ interface ILendingPool {
     address onBehalfOf
   ) external;
 
+  function deposit(
+    address asset,
+    uint256 amount,
+    address onBehalfOf,
+    uint16 referralCode
+  ) external;
+
   function repay(
     address asset,
     uint256 amount,

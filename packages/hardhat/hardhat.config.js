@@ -50,6 +50,16 @@ module.exports = {
         (you can put in a mnemonic here to set the deployer locally)
       */
     },
+    hardhat: {
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+      loggingEnabled: false,
+      forking: {
+        url: 'https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
+        blockNumber: 12680329, 
+      },
+    },
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
       accounts: {
@@ -88,11 +98,11 @@ module.exports = {
       },
     },
     matic: {
-      url: 'https://rpc-mainnet.maticvigil.com/',
-      gasPrice: 1000000000,
       accounts: {
         mnemonic: mnemonic(),
       },
+      gasPrice: 1000000000,
+      url: 'https://rpc-mainnet.maticvigil.com/',
     },
   },
   solidity: {
