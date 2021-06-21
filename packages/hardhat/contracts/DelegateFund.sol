@@ -21,8 +21,6 @@ contract DelegateFund is Ownable {
 
   event WithdrawalInitialisation(address to, uint256 amount, uint256 timeOfExecution);
   event WithdrawalSuccessful(address to, uint256 amount);
-
-  // do we really need here a constructor?
   
   /// --- Functions ---
   
@@ -41,8 +39,9 @@ contract DelegateFund is Ownable {
   
   /// @dev Withdrawal action for a specific asset found in the contract, emits event
   function withdraw(address _asset) external onlyOwner {
-    require(block.timestamp >= timeOfExecution, "locked!");
     require(assetsDestination != address(0), "destination!");
+    require(block.timestamp >= timeOfExecution, "locked!");
+    require(IERC20(_asset).balanceOf(address(this)) >= assetsAmount, "notEnoughtBalance!");
 
     IERC20(_asset).safeTransfer(assetsDestination, assetsAmount);
 
