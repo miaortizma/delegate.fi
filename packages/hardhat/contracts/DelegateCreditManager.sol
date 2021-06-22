@@ -114,6 +114,8 @@ contract DelegateCreditManager is Ownable {
                 amountToBorrow
             );
 
+            IERC20(_asset).approve(strategyInfo.strategyAddress, amountToBorrow);
+
             IStrategy(strategyInfo.strategyAddress).deposit(amountToBorrow);
 
             strategyInfo.amountWorking = strategyInfo.amountWorking.add(
