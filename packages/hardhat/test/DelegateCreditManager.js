@@ -2,12 +2,14 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 const DAI_WHALE = "0x16463c0fdB6BA9618909F5b120ea1581618C1b9E";
+const WHALE_DEPOSIT_AMOUNT = "500000";
 
-let degateCreditManager;
+let delegateCreditManager;
+let strategy;
 let daiToken;
 
 // --- AAVE contracts ---
-let lendingPool, dataProvider;
+let lendingPool, dataProvider, debtToken;
 
 let first_delegator, second_delegator, third_delegator;
 
@@ -60,21 +62,45 @@ before(async () => {
     addresses[chain].erc20Tokens.DAI
   );
 
+  debtToken = await ethers.getContractAt(
+    "IDebtToken",
+    '0x6C3c78838c761c6Ac7bE9F59fe808ea2A6E4379d'
+  );
+
   const DelegateCreditManager = await ethers.getContractFactory(
     "DelegateCreditManager"
   );
 
-  degateCreditManager = await DelegateCreditManager.deploy(
+  delegateCreditManager = await DelegateCreditManager.deploy(
     lendingPool.address,
     dataProvider.address
+  );
+
+  const Strategy = await ethers.getContractFactory("Strategy");
+
+  strategy = await Strategy.deploy(
+    [
+      "0x0000000000000000000000000000000000000000", // temporarily 0x address for testing 
+      addresses[chain].erc20Tokens.DAI,
+    ],
+    ethers.utils.parseEther("500000"), // we set 500k limit for testing
+    0
   );
 });
 
 describe("DelegateCreditManager", function () {
-  it("Delegating credit - allowance in DelegateCreditManager", async () => {
-    console.log("Decimals of DAI, verify: ", await daiToken.decimals());
+
+  it("Add strategy for DAI asset", async () => {
+    console.log('Strategy deployed at address: ', strategy.address);
+    await delegateCreditManager.setNewStrategy(
+      addresses[chain].erc20Tokens.DAI,
+      strategy.address
+    );
+  });
+
+  it("Delegating credit - allowance in DelegateCreditManager & deposit in strategy", async () => {
     console.log(
-      "Delegator Balance of DAI: ",
+      `Delegator (${DAI_WHALE}) Balance of DAI: `,
       ethers.utils.formatEther(
         await daiToken.balanceOf("0x16463c0fdB6BA9618909F5b120ea1581618C1b9E")
       )
@@ -82,20 +108,74 @@ describe("DelegateCreditManager", function () {
 
     await daiToken
       .connect(first_delegator)
-      .approve(lendingPool.address, ethers.utils.parseEther("500000"));
+      .approve(lendingPool.address, ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT));
+
+    expect(await daiToken.allowance(DAI_WHALE, lendingPool.address)).to.be.gte(
+      ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
+    );
 
     await lendingPool
       .connect(first_delegator)
       .deposit(
         addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther("500000"),
+        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT),
         DAI_WHALE,
         0
       );
 
     const delegatorAaveData = await lendingPool.getUserAccountData(DAI_WHALE);
-    
-    // at the moment should state roughly ~ 265ETH @1880
-    console.log(ethers.utils.formatEther(delegatorAaveData.totalCollateralETH));
+
+    // Check that collateral has been deposited succesfully
+    expect(delegatorAaveData.totalCollateralETH).to.be.gt(
+      ethers.utils.parseEther("200")
+    );
+
+    const reserveData = await dataProvider.getReserveTokensAddresses(
+      addresses[chain].erc20Tokens.DAI
+    );
+
+    console.log(
+      "variableDebtTokenAddress: ",
+      reserveData.variableDebtTokenAddress
+    );
+
+    // Nothing has been delegated still!
+    expect(
+      await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)
+    ).to.be.equal(0);
+
+    await debtToken
+      .approveDelegation(
+        delegateCreditManager.address,
+        ethers.utils.parseEther("10000")
+      );
+
+    // revert msg: '59' (Borrow allowance not enough), pendant to fix!
+    await delegateCreditManager
+      .connect(first_delegator)
+      .delegateCreditLine(
+        addresses[chain].erc20Tokens.DAI,
+        ethers.utils.parseEther("10000")
+      );
+
+    // in theory after executing the above method, now it should exist debt
+    const delegatorAaveDataPostDelegating = await lendingPool.getUserAccountData(DAI_WHALE);
+
+    console.log(
+      "Current debt: ",
+      ethers.utils.formatEther(delegatorAaveDataPostDelegating.totalDebtETH)
+    );
+    console.log(
+      'DelegateCreditManager allowance: ', // outputs 0, what is it failing??
+      ethers.utils.formatEther(
+        await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)
+      )
+    );
+    console.log(
+      `Amount delegated by ${DAI_WHALE} to manager: `,
+      ethers.utils.formatEther(
+        (await delegateCreditManager.delegators(DAI_WHALE)).amountDelegated
+      )
+    );
   });
 });

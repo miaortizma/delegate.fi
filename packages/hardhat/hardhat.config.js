@@ -57,7 +57,7 @@ module.exports = {
       loggingEnabled: false,
       forking: {
         url: 'https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
-        blockNumber: 12680329, 
+        blockNumber: 12683850, 
       },
     },
     rinkeby: {
