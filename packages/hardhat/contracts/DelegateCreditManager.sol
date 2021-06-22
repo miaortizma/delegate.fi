@@ -56,6 +56,7 @@ contract DelegateCreditManager is Ownable {
         });
 
         IERC20(_asset).approve(_strategy, uint256(-1));
+        IERC20(_asset).approve(address(lendingPool), uint256(-1));
     }
 
     /**
@@ -78,17 +79,60 @@ contract DelegateCreditManager is Ownable {
         if (_amount >= delegator.amountDelegated) {
             uint256 diffAllowance = _amount.sub(delegator.amountDelegated);
 
-            totalDelegatedAmounts[_asset].add(diffAllowance);
+            totalDelegatedAmounts[_asset] = totalDelegatedAmounts[_asset].add(
+                diffAllowance
+            );
 
             delegator.amountDelegated = _amount;
 
-            //deployCapital(_asset, msg.sender);
+            deployCapital(_asset, msg.sender);
+
+            // we should issue aka mint here some shares to track the revenue we should provide to each delegator
         } else {
             uint256 diffAllowance = delegator.amountDelegated.sub(_amount);
 
-            totalDelegatedAmounts[_asset].sub(diffAllowance);
+            totalDelegatedAmounts[_asset] = totalDelegatedAmounts[_asset].sub(
+                diffAllowance
+            );
 
-            // Unwind - repay back debt, perhaps method called `unwind(diffAllowance, msg.sender)`
+            delegator.amountDelegated = _amount;
+
+            unwindCapital(_asset, msg.sender);
+
+            // we should burn here the shares given to the users accordingly
+        }
+    }
+
+    /**
+     * @dev Unwind the desired amount from the strategy after decreasing the allowance, repay allowance debt
+     * @param _asset The asset which is going to be remove from strategy
+     * @param _delegator Delegator address, use to update mapping
+     **/
+    function unwindCapital(address _asset, address _delegator) internal {
+        StrategyInfo storage strategyInfo = strategies[_asset];
+
+        require(strategyInfo.strategyAddress != address(0), "notSet!");
+
+        DelegatorInfo storage delegator = delegators[_delegator];
+
+        require(delegator.amountDeployed > 0, "noDeployed!");
+
+        if (delegator.amountDelegated < delegator.amountDeployed) {
+            uint256 amountToUnwind =
+                delegator.amountDeployed.sub(delegator.amountDelegated);
+
+            require(amountToUnwind > 0, "0!");
+
+            IStrategy(strategyInfo.strategyAddress).withdraw(
+                address(this),
+                amountToUnwind
+            );
+
+            lendingPool.repay(_asset, amountToUnwind, 2, _delegator);
+
+            strategyInfo.amountWorking = strategyInfo.amountWorking.sub(
+                amountToUnwind
+            );
         }
     }
 
@@ -110,7 +154,7 @@ contract DelegateCreditManager is Ownable {
 
             require(amountToBorrow > 0, "0!");
 
-            lendingPool.borrow(_asset, amountToBorrow, 2, 0, msg.sender);
+            lendingPool.borrow(_asset, amountToBorrow, 2, 0, _delegator);
 
             delegator.amountDeployed = delegator.amountDeployed.add(
                 amountToBorrow

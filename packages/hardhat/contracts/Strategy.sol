@@ -83,11 +83,11 @@ contract Strategy is Ownable {
 
     /// @notice Provides insight of how many assets are under management expressed in `want`
     function totalAssets() public view returns (uint256) {
-        return balanceOfWant().add(lpCurveToWant());
+        return balanceOfWant().add(0);
     }
 
     /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
-    function deposit(uint256 _amount) external onlyOwner {
+    function deposit(uint256 _amount) external {
         require(_amount > 0, "nothing!");
 
         uint256 amount = _amount;
@@ -104,6 +104,20 @@ contract Strategy is Ownable {
         IERC20(want).safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposited(amount, block.timestamp);
+    }
+
+    function withdraw(address _recipient, uint256 _amount) external {
+        require(_amount > 0, "nothing!");
+
+        uint256 _wantBalanceIdle = IERC20(want).balanceOf(address(this));
+
+        if (_wantBalanceIdle >= _amount) {
+            IERC20(want).approve(_recipient, _amount);
+
+            IERC20(want).safeTransferFrom(address(this), _recipient, _amount);
+        } else {
+            // in this case we will need to withdraw from where the strategy is deploying the assets
+        }
     }
 
     /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
