@@ -13,6 +13,7 @@ import "./interface/ICurvePool.sol";
 import "./interface/IAaveGauge.sol";
 import "./interface/ILendingPool.sol";
 import "./interface/IAaveIncentivesController.sol";
+import "./interface/IProtocolDataProvider.sol";
 import "./interface/IAaveOracle.sol";
 import "./interface/IUniswapV2Router02.sol";
 
@@ -20,17 +21,15 @@ contract Strategy is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    /// Aave related contracts
     ILendingPool lendingPool =
-        ILendingPool(address(0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf));
+        ILendingPool(address(0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf));
     IAaveIncentivesController aaveRewards =
         IAaveIncentivesController(0x357D51124f59836DeD84c8a1730D72B749d8BC23);
     IProtocolDataProvider provider =
         IProtocolDataProvider(0x7551b5D2763519d4e37e8B81929D336De671d46d);
     address public constant oracleAddress =
-        0x0229f777b0fab107f9591a41d5f02e4e98db6f2d;
+        0x0229F777B0fAb107F9591a41d5F02E4e98dB6f2d;
 
-    /// Curve.fi related contracts
     ICurvePool public curvePool =
         ICurvePool(address(0x445FE580eF8d70FF569aB36e80c647af338db351));
     IAaveGauge public aaveGauge =
@@ -39,17 +38,15 @@ contract Strategy is Ownable, Pausable {
         IERC20(address(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171));
     int128 public curveId;
 
-    // Sushiswap relate contracts
     IUniswapV2Router02 sushiswapRouter =
         IUniswapV2Router02(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
     address public constant weth =
-        address(0x7ceb23fd6bc0add59e62ac25578270cff1b9f619);
+        address(0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
 
     address public delegateFund;
     address public want;
     address public manager;
 
-    /// Tokens involved in the strategy
     address public constant CRV =
         address(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
     address public constant WMATIC =
@@ -84,7 +81,7 @@ contract Strategy is Ownable, Pausable {
 
         depositLimit = _limit;
 
-        if (lpCRV.underlying_coins(_curveId) == want) {
+        if (curvePool.underlying_coins(_curveId) == want) {
             curveId = _curveId;
         }
 
@@ -120,7 +117,7 @@ contract Strategy is Ownable, Pausable {
             address(this)
         );
 
-        return totalCollateralETH.div(getRate());
+        return totalCollateralETH.div(aaveOracleRatio());
     }
 
     /// @notice Current debt position of strategy in Aave expressed in `want`
@@ -129,7 +126,7 @@ contract Strategy is Ownable, Pausable {
             address(this)
         );
 
-        return totalDebtETH.div(getRate());
+        return totalDebtETH.div(aaveOracleRatio());
     }
 
     /// @notice Borrowable power, ref `HF_REFERENCE`
@@ -313,7 +310,7 @@ contract Strategy is Ownable, Pausable {
                 type(uint256).min,
                 path,
                 address(this),
-                now
+                block.timestamp
             );
         }
     }
