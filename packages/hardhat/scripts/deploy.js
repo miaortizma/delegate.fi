@@ -6,21 +6,28 @@ const { utils } = require("ethers");
 
 const R = require("ramda");
 
-const LENDING_POOL = '0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf';
-const PROTOCOL_DATA_PROVIDER = '0x7551b5D2763519d4e37e8B81929D336De671d46d';
+const LENDING_POOL = "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf";
+const PROTOCOL_DATA_PROVIDER = "0x7551b5D2763519d4e37e8B81929D336De671d46d";
 
 const DAI = "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";
 
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");
 
-  const yourContract = await deploy("YourContract");
+  //const yourContract = await deploy("YourContract");
 
   const delegateFund = await deploy("DelegateFund");
   const karma = await deploy("Karma");
-  const strategy = await deploy("Strategy", [[delegateFund.address, DAI], utils.parseEther('1000'), 1]);
+  const strategy = await deploy("Strategy", [
+    [delegateFund.address, DAI],
+    utils.parseEther("1000"),
+    1,
+  ]);
   const userReturns = await deploy("UserReturns");
-  const delegateCreditManager = await deploy("DelegateCreditManager",[LENDING_POOL, PROTOCOL_DATA_PROVIDER]);
+  const delegateCreditManager = await deploy("DelegateCreditManager", [
+    LENDING_POOL,
+    PROTOCOL_DATA_PROVIDER,
+  ]);
 
   // const exampleToken = await deploy("ExampleToken")
   // const examplePriceOracle = await deploy("ExamplePriceOracle")

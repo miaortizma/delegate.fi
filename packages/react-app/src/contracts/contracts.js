@@ -1,1 +1,1 @@
-module.exports = [];
+module.exports = ["DelegateCreditManager","DelegateFund","Karma","Strategy","UserReturns"];
