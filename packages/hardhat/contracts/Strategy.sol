@@ -88,7 +88,7 @@ contract Strategy is Ownable {
         return balanceOfWant().add(0);
     }
 
-    /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
+    /// @dev Deposit `want` asset into the strategy
     function deposit(uint256 _amount) external {
         require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
@@ -109,6 +109,7 @@ contract Strategy is Ownable {
         emit Deposited(amount, block.timestamp);
     }
 
+    /// @dev Withdraw `want` asset from the strategy into the DelegateCreditManager
     function withdraw(address _recipient, uint256 _amount) external {
         require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
@@ -131,8 +132,10 @@ contract Strategy is Ownable {
         uint256 curveBal = IERC20(CRV).balanceOf(address(this));
         uint256 wmaticBal = IERC20(WMATIC).balanceOf(address(this));
 
-        (uint256 curveFee, uint256 wmaticFee) =
-            protocolFee(curveBal, wmaticBal);
+        (uint256 curveFee, uint256 wmaticFee) = protocolFee(
+            curveBal,
+            wmaticBal
+        );
 
         curveBal = curveBal.sub(curveFee);
         wmaticBal = wmaticBal.sub(wmaticFee);
@@ -144,6 +147,11 @@ contract Strategy is Ownable {
         emit Harvest(curveBal, wmaticBal, curveFee, wmaticFee, block.number);
     }
 
+    /**
+     * @dev It will send revenue to our DelegateFund contract accordingly (depending on `REVENUE_FEE`)
+     * @param curveHarvested  Total amount which has been harvested in harvest() of curve tokens
+     * @param wmaticHarvested Total amount which has been harvested in harvest() of wmatic tokens
+     **/
     function protocolFee(uint256 curveHarvested, uint256 wmaticHarvested)
         internal
         returns (uint256 curveFee, uint256 wmaticFee)
