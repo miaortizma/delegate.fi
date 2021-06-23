@@ -163,12 +163,12 @@ contract Strategy is Ownable, Pausable {
     }
 
     /// --- Functions to pause certain methods (security) ---
-    
+
     /// @notice It will freeze certain methods, to avoid exploits when needed
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /// @notice Back to usual activity, once concerns are resolved
     function unpause() external onlyOwner {
         _unpause();
@@ -209,13 +209,36 @@ contract Strategy is Ownable, Pausable {
 
         uint256 _wantBalanceIdle = IERC20(want).balanceOf(address(this));
 
-        if (_wantBalanceIdle >= _amount) {
-            IERC20(want).approve(_recipient, _amount);
+        IERC20(want).approve(_recipient, _amount);
 
+        if (_wantBalanceIdle >= _amount) {
             IERC20(want).safeTransferFrom(address(this), _recipient, _amount);
         } else {
-            // in this case we will need to withdraw from where the strategy is deploying the assets
+            uint256 wantAmountRequired = _amount.sub(_wantBalanceIdle);
+
+            _freeAavePositions(wantAmountRequired);
+
+            IERC20(want).safeTransferFrom(address(this), _recipient, _amount);
         }
+    }
+
+    /**
+     * @dev [External] Free certain portion of positions owned by the strategy
+     * @param _amount amount to free up
+     **/
+    function freeAavePositions(uint256 _amount) external onlyOwner {
+        _freeAavePositions(_amount);
+    }
+
+    /**
+     * @dev [Internal] Free certain portion of positions owned by the strategy
+     * @param _amount amount to free up
+     **/
+    function _freeAavePositions(uint256 _amount) internal {
+        require(_amount <= totalAssets(), ">totalAssets");
+
+        // probably better logic needs to be handle here since we probably have some borrow positions... (TO BE IMPROVED!)
+        lendingPool.withdraw(want, _amount, address(this));
     }
 
     // --- External Actions authorized only to `owner` ---
@@ -285,7 +308,7 @@ contract Strategy is Ownable, Pausable {
         uint256[3] memory amounts;
 
         amounts = [wantBorrowed, 0, 0];
-        
+
         curvePool.add_liquidity(amounts, 0, true);
 
         uint256 lpCrvBalance = lpCRV.balanceOf(address(this));
@@ -360,7 +383,10 @@ contract Strategy is Ownable, Pausable {
      * @dev Set new selling threshold
      * @param _minSellThreshold new threshold amount
      **/
-    function setMinThresholdToSell(uint256 _minSellThreshold) external onlyOwner {
+    function setMinThresholdToSell(uint256 _minSellThreshold)
+        external
+        onlyOwner
+    {
         minSellThreshold = _minSellThreshold;
     }
 }

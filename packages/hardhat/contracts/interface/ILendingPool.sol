@@ -24,6 +24,12 @@ interface ILendingPool {
         address onBehalfOf
     ) external returns (uint256);
 
+    function withdraw(
+        address asset,
+        uint256 amount,
+        address to
+    ) external returns (uint256);
+
     function flashLoan(
         address receiverAddress,
         address[] calldata assets,
