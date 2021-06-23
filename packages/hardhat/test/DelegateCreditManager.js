@@ -82,6 +82,7 @@ before(async () => {
     [
       "0x0000000000000000000000000000000000000000", // temporarily 0x address for testing 
       addresses[chain].erc20Tokens.DAI,
+      delegateCreditManager.address
     ],
     ethers.utils.parseEther("500000"), // we set 500k limit for testing
     0

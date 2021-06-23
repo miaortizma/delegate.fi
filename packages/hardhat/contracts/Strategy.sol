@@ -25,6 +25,7 @@ contract Strategy is Ownable {
 
     address public delegateFund;
     address public want; // it could DAI, USDC or USDT (which?)
+    address public manager;
 
     /// Tokens involved in the strategy
     address public constant CRV =
@@ -48,12 +49,13 @@ contract Strategy is Ownable {
     );
 
     constructor(
-        address[2] memory _initialConfig,
+        address[3] memory _initialConfig,
         uint256 _limit,
         int128 _curveId
     ) public {
         delegateFund = _initialConfig[0];
         want = _initialConfig[1];
+        manager = _initialConfig[2];
 
         depositLimit = _limit;
 
@@ -88,6 +90,7 @@ contract Strategy is Ownable {
 
     /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
     function deposit(uint256 _amount) external {
+        require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
 
         uint256 amount = _amount;
@@ -107,6 +110,7 @@ contract Strategy is Ownable {
     }
 
     function withdraw(address _recipient, uint256 _amount) external {
+        require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
 
         uint256 _wantBalanceIdle = IERC20(want).balanceOf(address(this));
