@@ -11,10 +11,21 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "./interface/ICurvePool.sol";
 import "./interface/IAaveGauge.sol";
+import "./interface/ILendingPool.sol";
+import "./interface/IAaveIncentivesController.sol";
+import "./interface/IUniswapV2Router02.sol";
 
 contract Strategy is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
+
+    /// Aave related contracts
+    ILendingPool lendingPool =
+        ILendingPool(address(0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf));
+    IAaveIncentivesController aaveRewards =
+        IAaveIncentivesController(0x357D51124f59836DeD84c8a1730D72B749d8BC23);
+    IProtocolDataProvider provider =
+        IProtocolDataProvider(0x7551b5D2763519d4e37e8B81929D336De671d46d);
 
     /// Curve.fi related contracts
     ICurvePool public curvePool =
@@ -25,6 +36,12 @@ contract Strategy is Ownable, Pausable {
         IERC20(address(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171));
 
     int128 public curveId;
+
+    // Sushiswap to recycle rewards
+    IUniswapV2Router02 sushiswapRouter =
+        IUniswapV2Router02(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
+    address public constant weth =
+        address(0x7ceb23fd6bc0add59e62ac25578270cff1b9f619);
 
     address public delegateFund;
     address public want; // it could DAI, USDC or USDT (which?)
@@ -38,6 +55,8 @@ contract Strategy is Ownable, Pausable {
 
     uint256 public constant MAX_FEE = 10000;
     uint256 public REVENUE_FEE = 1000;
+    uint256 public constant HF_REFERENCE = 1.35 ether;
+    uint256 public minSellThreshold = 0.5 ether;
     uint256 public depositLimit;
 
     event UpdateDepositLimit(uint256 depositLimit, uint256 timestamp);
@@ -48,6 +67,7 @@ contract Strategy is Ownable, Pausable {
         uint256 wmaticHarvested,
         uint256 curveProtocolFee,
         uint256 wmaticProtocolFee,
+        uint256 wantDeposited,
         uint256 indexed blockNumber
     );
 
@@ -63,6 +83,8 @@ contract Strategy is Ownable, Pausable {
         depositLimit = _limit;
 
         curveId = _curveId;
+
+        IERC20(want).safeApprove(address(lendingPool), type(uint256).max);
     }
 
     /// --- View Functions ---
@@ -121,6 +143,8 @@ contract Strategy is Ownable, Pausable {
 
         IERC20(want).safeTransferFrom(msg.sender, address(this), amount);
 
+        lendingPool.deposit(want, amount, address(this), 0);
+
         emit Deposited(amount, block.timestamp);
     }
 
@@ -145,8 +169,21 @@ contract Strategy is Ownable, Pausable {
 
     // --- External Actions authorized only to `owner` ---
 
-    /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
+    /// @dev Harvest accum rewards from Gauge (CRV & WMATIC) and compound positions
     function harvest() external onlyOwner {
+        (address aToken, , address variableDebt) = provider
+        .getReserveTokensAddresses(want);
+
+        address[] memory claimableAddresses = new address[](2);
+        claimableAddresses[0] = aToken;
+        claimableAddresses[1] = variableDebt;
+
+        aaveRewards.claimRewards(
+            claimableAddresses,
+            type(uint256).max,
+            address(this)
+        );
+
         aaveGauge.claim_rewards(address(this));
 
         uint256 curveBal = IERC20(CRV).balanceOf(address(this));
@@ -161,10 +198,48 @@ contract Strategy is Ownable, Pausable {
         wmaticBal = wmaticBal.sub(wmaticFee);
 
         if (wmaticBal > 0 || curveBal > 0) {
-            // 1. It would be sold in the secondary market for more `want`
+            _recycleRewards(address(CRV), curveBal);
+            _recycleRewards(address(WMATIC), wmaticBal);
         }
 
-        emit Harvest(curveBal, wmaticBal, curveFee, wmaticFee, block.number);
+        uint256 wantAmount = IERC20(want).balanceOf(address(this));
+
+        lendingPool.deposit(want, wantAmount, address(this), 0);
+
+        // here we should borrow accordingly to HF and provide lp into Curve again!
+
+        emit Harvest(
+            curveBal,
+            wmaticBal,
+            curveFee,
+            wmaticFee,
+            wantAmount,
+            block.number
+        );
+    }
+
+    /**
+     * @dev Recycle rewards for `want` via Sushiswap
+     * @param _rewardAddress Reward address
+     * @param _rewardAmount Amount of rewards to be recycled
+     **/
+    function _recycleRewards(address _rewardAddress, uint256 _rewardAmount)
+        internal
+    {
+        if (_rewardAmount > minSellThreshold) {
+            address[] memory path = new address[](3);
+            path[0] = _rewardAddress;
+            path[1] = weth;
+            path[2] = address(want);
+
+            sushiswapRouter.swapExactTokensForTokens(
+                _rewardAmount,
+                type(uint256).min,
+                path,
+                address(this),
+                now
+            );
+        }
     }
 
     /**
@@ -204,5 +279,13 @@ contract Strategy is Ownable, Pausable {
         depositLimit = _limit;
 
         emit UpdateDepositLimit(depositLimit, block.timestamp);
+    }
+
+    /**
+     * @dev Set new selling threshold
+     * @param _minSellThreshold new threshold amount
+     **/
+    function setMinCompToSell(uint256 _minSellThreshold) external onlyOwner {
+        minSellThreshold = _minSellThreshold;
     }
 }
