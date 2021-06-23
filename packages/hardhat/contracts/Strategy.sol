@@ -163,11 +163,13 @@ contract Strategy is Ownable, Pausable {
     }
 
     /// --- Functions to pause certain methods (security) ---
-
+    
+    /// @notice It will freeze certain methods, to avoid exploits when needed
     function pause() external onlyOwner {
         _pause();
     }
-
+    
+    /// @notice Back to usual activity, once concerns are resolved
     function unpause() external onlyOwner {
         _unpause();
     }
@@ -358,7 +360,7 @@ contract Strategy is Ownable, Pausable {
      * @dev Set new selling threshold
      * @param _minSellThreshold new threshold amount
      **/
-    function setMinCompToSell(uint256 _minSellThreshold) external onlyOwner {
+    function setMinThresholdToSell(uint256 _minSellThreshold) external onlyOwner {
         minSellThreshold = _minSellThreshold;
     }
 }
