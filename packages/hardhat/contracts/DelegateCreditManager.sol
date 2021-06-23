@@ -52,7 +52,7 @@ contract DelegateCreditManager is Ownable {
     {
         strategies[_asset] = StrategyInfo({
             strategyAddress: _strategy,
-            amountWorking: uint256(0)
+            amountWorking: type(uint256).min
         });
 
         IERC20(_asset).approve(_strategy, type(uint256).max);
