@@ -1,10 +1,10 @@
-pragma solidity >=0.6.0 <0.9.0;
 //SPDX-License-Identifier: MIT
+pragma solidity >=0.6.0 <0.9.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interface/ILendingPool.sol";
@@ -55,8 +55,8 @@ contract DelegateCreditManager is Ownable {
             amountWorking: uint256(0)
         });
 
-        IERC20(_asset).approve(_strategy, uint256(-1));
-        IERC20(_asset).approve(address(lendingPool), uint256(-1));
+        IERC20(_asset).approve(_strategy, type(uint256).max);
+        IERC20(_asset).approve(address(lendingPool), type(uint256).max);
     }
 
     /**
@@ -66,8 +66,8 @@ contract DelegateCreditManager is Ownable {
      * @notice we do not emit event as  `approveDelegation` emits -> BorrowAllowanceDelegated
      **/
     function delegateCreditLine(address _asset, uint256 _amount) public {
-        (, , address variableDebtTokenAddress) =
-            provider.getReserveTokensAddresses(_asset);
+        (, , address variableDebtTokenAddress) = provider
+        .getReserveTokensAddresses(_asset);
 
         IDebtToken(variableDebtTokenAddress).approveDelegation(
             address(this),
@@ -118,8 +118,9 @@ contract DelegateCreditManager is Ownable {
         require(delegator.amountDeployed > 0, "noDeployed!");
 
         if (delegator.amountDelegated < delegator.amountDeployed) {
-            uint256 amountToUnwind =
-                delegator.amountDeployed.sub(delegator.amountDelegated);
+            uint256 amountToUnwind = delegator.amountDeployed.sub(
+                delegator.amountDelegated
+            );
 
             require(amountToUnwind > 0, "0!");
 
@@ -149,8 +150,9 @@ contract DelegateCreditManager is Ownable {
         DelegatorInfo storage delegator = delegators[_delegator];
 
         if (delegator.amountDelegated >= delegator.amountDeployed) {
-            uint256 amountToBorrow =
-                delegator.amountDelegated.sub(delegator.amountDeployed);
+            uint256 amountToBorrow = delegator.amountDelegated.sub(
+                delegator.amountDeployed
+            );
 
             require(amountToBorrow > 0, "0!");
 

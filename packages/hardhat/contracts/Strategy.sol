@@ -1,15 +1,18 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.9.0;
 
 import "hardhat/console.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "./interface/ICurvePool.sol";
 import "./interface/IAaveGauge.sol";
 
-contract Strategy is Ownable {
+contract Strategy is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -88,14 +91,26 @@ contract Strategy is Ownable {
         return balanceOfWant().add(0);
     }
 
+    /// --- Functions to pause certain methods (security) ---
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// --- External Actions via `manager` ---
+
     /// @dev Deposit `want` asset into the strategy
-    function deposit(uint256 _amount) external {
+    function deposit(uint256 _amount) external whenNotPaused {
         require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
 
         uint256 amount = _amount;
 
-        if (_amount == uint256(-1)) {
+        if (_amount == type(uint256).max) {
             amount = Math.min(
                 IERC20(want).balanceOf(msg.sender),
                 depositLimit.sub(totalAssets())
@@ -110,7 +125,10 @@ contract Strategy is Ownable {
     }
 
     /// @dev Withdraw `want` asset from the strategy into the DelegateCreditManager
-    function withdraw(address _recipient, uint256 _amount) external {
+    function withdraw(address _recipient, uint256 _amount)
+        external
+        whenNotPaused
+    {
         require(msg.sender == manager, "manager!");
         require(_amount > 0, "nothing!");
 
@@ -124,6 +142,8 @@ contract Strategy is Ownable {
             // in this case we will need to withdraw from where the strategy is deploying the assets
         }
     }
+
+    // --- External Actions authorized only to `owner` ---
 
     /// @dev Harvest accum rewards from Gauge (CRV & WMATIC)
     function harvest() external onlyOwner {
