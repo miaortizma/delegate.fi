@@ -81,9 +81,10 @@ contract Strategy is Ownable, Pausable {
 
         depositLimit = _limit;
 
-        if (curvePool.underlying_coins(_curveId) == want) {
+        curveId = 0;
+        /*if (curvePool.underlying_coins(_curveId) == want) {
             curveId = _curveId;
-        }
+        }*/
 
         IERC20(want).safeApprove(address(lendingPool), type(uint256).max);
         IERC20(want).safeApprove(address(curvePool), type(uint256).max);
@@ -209,17 +210,15 @@ contract Strategy is Ownable, Pausable {
 
         uint256 _wantBalanceIdle = IERC20(want).balanceOf(address(this));
 
-        IERC20(want).approve(_recipient, _amount);
-
-        if (_wantBalanceIdle >= _amount) {
-            IERC20(want).safeTransferFrom(address(this), _recipient, _amount);
-        } else {
+        if (_wantBalanceIdle < _amount) {
             uint256 wantAmountRequired = _amount.sub(_wantBalanceIdle);
 
             _freeAavePositions(wantAmountRequired);
-
-            IERC20(want).safeTransferFrom(address(this), _recipient, _amount);
         }
+
+        IERC20(want).safeApprove(_recipient, _amount);
+
+        IERC20(want).safeTransfer(_recipient, _amount);
     }
 
     /**
@@ -235,7 +234,7 @@ contract Strategy is Ownable, Pausable {
      * @param _amount amount to free up
      **/
     function _freeAavePositions(uint256 _amount) internal {
-        require(_amount <= totalAssets(), ">totalAssets");
+        require(totalAssets().mul(10**18) >= _amount, "<totalAssets!");
 
         // probably better logic needs to be handle here since we probably have some borrow positions... (TO BE IMPROVED!)
         lendingPool.withdraw(want, _amount, address(this));
