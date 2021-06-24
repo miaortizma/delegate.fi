@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-const DAI_WHALE = "0x16463c0fdB6BA9618909F5b120ea1581618C1b9E";
+const DAI_WHALE = "0xeA78c186B28c5D75c64bb8eCdBdb38F357157C73";
 const WHALE_DEPOSIT_AMOUNT = "500000";
 
 let delegateCreditManager;
@@ -22,6 +22,7 @@ const addresses = {
     aave: {
       lendingPool: "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf",
       dataProvider: "0x7551b5D2763519d4e37e8B81929D336De671d46d",
+      debtToken: "0x75c4d1Fb84429023170086f06E682DcbBF537b7d"
     },
   },
   ethereum: {
@@ -31,12 +32,13 @@ const addresses = {
     aave: {
       lendingPool: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
       dataProvider: "0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d",
+      debtToken: '0x6C3c78838c761c6Ac7bE9F59fe808ea2A6E4379d'
     },
   },
 };
 
 // can be also polygon, but cannot manage to plug the forking for polygon
-const chain = "ethereum";
+const chain = "polygon";
 
 before(async () => {
   [admin] = await ethers.getSigners();
@@ -64,7 +66,7 @@ before(async () => {
 
   debtToken = await ethers.getContractAt(
     "IDebtToken",
-    '0x6C3c78838c761c6Ac7bE9F59fe808ea2A6E4379d'
+    addresses[chain].aave.debtToken
   );
 
   const DelegateCreditManager = await ethers.getContractFactory(
@@ -85,7 +87,7 @@ before(async () => {
       delegateCreditManager.address
     ],
     ethers.utils.parseEther("500000"), // we set 500k limit for testing
-    0
+    ethers.utils.parseEther("0")
   );
 });
 
@@ -103,7 +105,7 @@ describe("DelegateCreditManager", function () {
     console.log(
       `Delegator (${DAI_WHALE}) Balance of DAI: `,
       ethers.utils.formatEther(
-        await daiToken.balanceOf("0x16463c0fdB6BA9618909F5b120ea1581618C1b9E")
+        await daiToken.balanceOf(DAI_WHALE)
       )
     );
 

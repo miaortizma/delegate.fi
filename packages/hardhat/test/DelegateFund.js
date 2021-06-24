@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-const DAI_WHALE = "0x16463c0fdB6BA9618909F5b120ea1581618C1b9E";
+const DAI_WHALE = "0xeA78c186B28c5D75c64bb8eCdBdb38F357157C73";
 
 let daiToken;
 let delegateFund;
@@ -21,7 +21,7 @@ before(async () => {
 
   daiToken = await ethers.getContractAt(
     "TestErc20",
-    "0x6b175474e89094c44da98b954eedeac495271d0f"
+    "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063"
   );
 });
 

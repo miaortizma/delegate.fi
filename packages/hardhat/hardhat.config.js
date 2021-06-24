@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { utils } = require("ethers");
 const fs = require("fs");
 const chalk = require("chalk");
@@ -36,57 +37,25 @@ function mnemonic() {
   return "";
 }
 
+// don't forget to set your provider like:
+// REACT_APP_PROVIDER=https://dai.poa.network in packages/react-app/.env
+// (then your frontend will talk to your contracts on the live network!)
+// (you will need to restart the `yarn run start` dev server after editing the .env)
+
 module.exports = {
   defaultNetwork,
-
-  // don't forget to set your provider like:
-  // REACT_APP_PROVIDER=https://dai.poa.network in packages/react-app/.env
-  // (then your frontend will talk to your contracts on the live network!)
-  // (you will need to restart the `yarn run start` dev server after editing the .env)
-
   networks: {
     localhost: {
       url: "http://localhost:8545",
-      /*
-        notice no mnemonic here? it will just use account 0 of the hardhat node to deploy
-        (you can put in a mnemonic here to set the deployer locally)
-      */
     },
-    rinkeby: {
-      url: "https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
+    hardhat: {
       accounts: {
         mnemonic: mnemonic(),
       },
-    },
-    kovan: {
-      url: "https://kovan.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
-      accounts: {
-        mnemonic: mnemonic(),
-      },
-    },
-    mainnet: {
-      url: "https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
-      accounts: {
-        mnemonic: mnemonic(),
-      },
-    },
-    ropsten: {
-      url: "https://ropsten.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
-      accounts: {
-        mnemonic: mnemonic(),
-      },
-    },
-    goerli: {
-      url: "https://goerli.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", //<---- YOUR INFURA ID! (or it won't work)
-      accounts: {
-        mnemonic: mnemonic(),
-      },
-    },
-    xdai: {
-      url: "https://rpc.xdaichain.com/",
-      gasPrice: 1000000000,
-      accounts: {
-        mnemonic: mnemonic(),
+      loggingEnabled: false,
+      forking: {
+        url: process.env.MATIC_MAINNET_URL,
+        block: 16092752,
       },
     },
     matic: {
@@ -94,13 +63,22 @@ module.exports = {
         mnemonic: mnemonic(),
       },
       gasPrice: 1000000000,
-      url: "https://rpc-mainnet.maticvigil.com/",
+      url: process.env.MATIC_MAINNET_URL,
+      chainId: 137,
+    },
+    mumbai: {
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+      url: process.env.MATIC_MUMBAI_URL,
+      gasPrice: 1000000000,
+      chainId: 80001,
     },
   },
   solidity: {
     compilers: [
       {
-        version: "0.7.6",
+        version: "0.8.0",
         settings: {
           optimizer: {
             enabled: true,
@@ -120,8 +98,6 @@ module.exports = {
     ],
   },
   etherscan: {
-    // Your API key for Etherscan
-    // Obtain one at https://etherscan.io/
     apiKey: "PSW8C433Q667DVEX5BCRMGNAH9FSGFZ7Q8",
   },
 };
