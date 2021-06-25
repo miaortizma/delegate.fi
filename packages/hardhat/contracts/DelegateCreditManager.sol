@@ -11,6 +11,7 @@ import "./interface/ILendingPool.sol";
 import "./interface/IDebtToken.sol";
 import "./interface/IProtocolDataProvider.sol";
 import "./interface/IStrategy.sol";
+import "./interface/IAaveOracle.sol";
 
 contract DelegateCreditManager is Ownable {
     using SafeMath for uint256;
@@ -29,6 +30,11 @@ contract DelegateCreditManager is Ownable {
 
     ILendingPool lendingPool;
     IProtocolDataProvider provider;
+    address public constant oracleAddress =
+        0x0229F777B0fAb107F9591a41d5F02E4e98dB6f2d;
+
+    uint256 public constant MAX_REF = 10000;
+    uint256 public constant SAFE_REF = 4500;
 
     mapping(address => DelegatorInfo) public delegators;
     mapping(address => StrategyInfo) public strategies; // perhaps, for simplicity one strategy per asset
@@ -60,18 +66,56 @@ contract DelegateCreditManager is Ownable {
     }
 
     /**
+     * @dev Allows user to first deposit in Aave and then delegate
+     * @param _assetDeposit The asset which is deposited in Aave
+     * @param _assetStrategy The asset used in the strategy
+     * @param _amount The amount deposited in Aave of _assetDeposit type
+     **/
+    function depositAaveAndDelegate(
+        address _assetDeposit,
+        address _assetStrategy,
+        uint256 _amount
+    ) external {
+        IERC20(_assetDeposit).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _amount
+        );
+
+        lendingPool.deposit(_assetDeposit, _amount, msg.sender, 0);
+
+        (, , uint256 availableBorrowsETH, , , ) = lendingPool
+        .getUserAccountData(msg.sender);
+
+        uint256 ratioOracle = IAaveOracle(oracleAddress).getAssetPrice(
+            _assetStrategy
+        );
+
+        uint256 safeDelegableAmount = availableBorrowsETH
+        .mul(SAFE_REF)
+        .div(MAX_REF)
+        .div(ratioOracle);
+
+        _delegateCreditLine(_assetStrategy, safeDelegableAmount.mul(10**18));
+    }
+
+    function delegateCreditLine(address _asset, uint256 _amount) external {
+        _delegateCreditLine(_asset, _amount);
+    }
+
+    /**
      * @dev Allows user to delegate to our protocol (first point of contact user:protocol)
      * @param _asset The asset which is delegated
      * @param _amount The amount delegated to us to manage
      * @notice we do not emit event as  `approveDelegation` emits -> BorrowAllowanceDelegated
      **/
-    function delegateCreditLine(address _asset, uint256 _amount) public {
+    function _delegateCreditLine(address _asset, uint256 _amount) internal {
         (, , address variableDebtTokenAddress) = provider
         .getReserveTokensAddresses(_asset);
 
         IDebtToken(variableDebtTokenAddress).approveDelegation(
             address(this),
-            _amount
+            _amount // something is not working as intended (TOFIX!)
         );
 
         DelegatorInfo storage delegator = delegators[msg.sender];

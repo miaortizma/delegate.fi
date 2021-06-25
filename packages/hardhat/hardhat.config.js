@@ -55,7 +55,7 @@ module.exports = {
       loggingEnabled: false,
       forking: {
         url: process.env.MATIC_MAINNET_URL,
-        block: 16108365,
+        block: 16131093,
       },
     },
     matic: {

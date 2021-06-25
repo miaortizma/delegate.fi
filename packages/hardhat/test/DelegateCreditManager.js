@@ -102,7 +102,7 @@ describe("DelegateCreditManager", function () {
 
   it("Delegating credit - allowance in DelegateCreditManager & deposit in strategy", async () => {
     console.log(
-      `Delegator (${DAI_WHALE}) Balance of DAI: `,
+      `Delegator ${DAI_WHALE} Balance of DAI: `,
       ethers.utils.formatEther(await daiToken.balanceOf(DAI_WHALE))
     );
 
@@ -128,7 +128,11 @@ describe("DelegateCreditManager", function () {
 
     const delegatorAaveData = await lendingPool.getUserAccountData(DAI_WHALE);
 
-    // Check that collateral has been deposited succesfully
+    console.log(
+      `Collateral of  ${DAI_WHALE} in Aave: `,
+      ethers.utils.formatEther(delegatorAaveData.totalCollateralETH)
+    );
+
     expect(delegatorAaveData.totalCollateralETH).to.be.gt(
       ethers.utils.parseEther("200")
     );
@@ -195,11 +199,18 @@ describe("DelegateCreditManager", function () {
       strategy.address
     );
 
-    console.log("Current collateral deposited in Aave by the strategy: ", ethers.utils.formatEther(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH))
-    
+    console.log(
+      "Current collateral deposited in Aave by the strategy: ",
+      ethers.utils.formatEther(
+        StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH
+      )
+    );
+
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
 
-    console.log("--------------------------------------------------------------------------------------");
+    console.log(
+      "--------------------------------------------------------------------------------------"
+    );
   }).timeout(60000);
 
   it("Delegating credit - stop allowance & withdraw from strategy", async () => {
@@ -210,14 +221,20 @@ describe("DelegateCreditManager", function () {
         ethers.utils.parseEther("0")
       );
 
-    expect(await daiToken.balanceOf(strategy.address)).to.eq(ethers.utils.parseEther("0"));
-    expect(await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)).to.eq(0);
+    expect(await daiToken.balanceOf(strategy.address)).to.eq(
+      ethers.utils.parseEther("0")
+    );
+    expect(
+      await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)
+    ).to.eq(0);
 
-    const delegatorAaveDataPostUnwinding = await lendingPool.getUserAccountData(DAI_WHALE);
+    const delegatorAaveDataPostUnwinding = await lendingPool.getUserAccountData(
+      DAI_WHALE
+    );
 
     // it should leave some dust, i.e, minimal interest
     console.log(
-      "Current debt post unwinding: ",
+      "Current debt post -> unwinding action: ",
       ethers.utils.formatEther(delegatorAaveDataPostUnwinding.totalDebtETH)
     );
 
@@ -225,6 +242,57 @@ describe("DelegateCreditManager", function () {
       ethers.utils.parseEther("0.000001")
     );
 
-    console.log("--------------------------------------------------------------------------------------");
+    console.log(
+      "--------------------------------------------------------------------------------------"
+    );
+  });
+
+  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+    await lendingPool
+      .connect(first_delegator)
+      .withdraw(
+        addresses[chain].erc20Tokens.DAI,
+        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT),
+        DAI_WHALE
+      );
+
+    const delegatorAaveData = await lendingPool.getUserAccountData(DAI_WHALE);
+
+    expect(delegatorAaveData.totalCollateralETH).to.lt(ethers.utils.parseEther("0.1"));
+
+    await daiToken
+      .connect(first_delegator)
+      .approve(
+        delegateCreditManager.address,
+        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
+      );
+
+    await debtToken
+      .connect(first_delegator)
+      .approveDelegation(
+        delegateCreditManager.address,
+        ethers.utils.parseEther("250000")
+      );
+
+    await delegateCreditManager
+      .connect(first_delegator)
+      .depositAaveAndDelegate(
+        addresses[chain].erc20Tokens.DAI,
+        addresses[chain].erc20Tokens.DAI,
+        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
+      );
+
+    const delegatorAaveDataPostDeposit = await lendingPool.getUserAccountData(DAI_WHALE);
+
+    console.log(
+      `Current debt of ${DAI_WHALE} after interacting via -> depositAaveAndDelegate: `,
+      ethers.utils.formatEther(delegatorAaveDataPostDeposit.totalDebtETH)
+    );
+
+    expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(ethers.utils.parseEther("70"));
+
+    console.log(
+      "--------------------------------------------------------------------------------------"
+    );
   });
 });
