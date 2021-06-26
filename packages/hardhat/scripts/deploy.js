@@ -41,15 +41,17 @@ const main = async () => {
     [addresses[chain].aave.lendingPool,
     addresses[chain].aave.dataProvider]
   );
+
   const strategy = await deploy("Strategy", [
     [
-      "0x0000000000000000000000000000000000000000",
+      delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
     ],
     ethers.utils.parseEther("500000"),
     ethers.utils.parseEther("0"),
   ]);
+
   const userReturns = await deploy("UserReturns");
 
   console.log(
