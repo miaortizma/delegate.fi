@@ -29,6 +29,7 @@ contract Strategy is Ownable, Pausable {
         IProtocolDataProvider(0x7551b5D2763519d4e37e8B81929D336De671d46d);
     address public constant oracleAddress =
         0x0229F777B0fAb107F9591a41d5F02E4e98dB6f2d;
+    address public variableDebtTokenAddr;
 
     ICurvePool public curvePool =
         ICurvePool(address(0x445FE580eF8d70FF569aB36e80c647af338db351));
@@ -54,6 +55,7 @@ contract Strategy is Ownable, Pausable {
 
     uint256 public constant MAX_FEE = 10000;
     uint256 public REVENUE_FEE = 1000;
+    uint256 public constant ltvDesired = 6000;
     uint256 public constant HF_REFERENCE = 1.35 ether;
     uint256 public minSellThreshold = 0.5 ether;
     uint256 public depositLimit;
@@ -78,6 +80,12 @@ contract Strategy is Ownable, Pausable {
         delegateFund = _initialConfig[0];
         want = _initialConfig[1];
         manager = _initialConfig[2];
+
+        (, , address _variableDebtToken) = provider.getReserveTokensAddresses(
+            address(want)
+        );
+
+        variableDebtTokenAddr = _variableDebtToken;
 
         depositLimit = _limit;
 
@@ -163,6 +171,56 @@ contract Strategy is Ownable, Pausable {
             );
     }
 
+    /// @notice Amount we should repay to free-up `want`amount demanded
+    function _debtToRepay(uint256 amount) internal view returns (uint256) {
+        (
+            uint256 totalCollateralETH,
+            uint256 totalDebtETH,
+            uint256 availableBorrowsETH,
+            uint256 currentLiquidationThreshold,
+            ,
+
+        ) = lendingPool.getUserAccountData(address(this));
+
+        uint256 ratio = aaveOracleRatio();
+
+        uint256 amountToWithdrawInEth = amount.mul(ratio);
+
+        uint256 collateralAfter = totalCollateralETH > amountToWithdrawInEth
+            ? totalCollateralETH.sub(amountToWithdrawInEth)
+            : 0;
+
+        uint256 ltvAfter = collateralAfter > 0
+            ? totalDebtETH.mul(MAX_FEE).div(collateralAfter)
+            : type(uint256).max;
+
+        if (ltvAfter == type(uint256).max) {
+            return totalDebtETH.div(ratio);
+        }
+
+        uint256 desiredLTV = _desiredLTV(currentLiquidationThreshold);
+
+        uint256 targetDebt = desiredLTV.mul(collateralAfter).div(MAX_FEE);
+
+        if (targetDebt > totalDebtETH) {
+            return 0;
+        }
+
+        return
+            totalDebtETH.sub(targetDebt) < 0
+                ? totalDebtETH.div(ratio)
+                : (totalDebtETH.sub(targetDebt)).div(ratio);
+    }
+
+    /// @notice 60% under liquidationThreshold "safe"
+    function _desiredLTV(uint256 liquidationThreshold)
+        internal
+        view
+        returns (uint256)
+    {
+        return liquidationThreshold.mul(ltvDesired).div(MAX_FEE);
+    }
+
     /// --- Functions to pause certain methods (security) ---
 
     /// @notice It will freeze certain methods, to avoid exploits when needed
@@ -236,8 +294,45 @@ contract Strategy is Ownable, Pausable {
     function _freeAavePositions(uint256 _amount) internal {
         require(totalAssets().mul(10**18) >= _amount, "<totalAssets!");
 
-        // probably better logic needs to be handle here since we probably have some borrow positions... (TO BE IMPROVED!)
+        uint256 payDebt = _debtToRepay(_amount);
+        uint256 liquidityAmountRemoved = _withdrawCurvePool(payDebt);
+
+        _repayDebt(liquidityAmountRemoved);
+
         lendingPool.withdraw(want, _amount, address(this));
+    }
+
+    /**
+     * @dev [Internal] Repay back debt into Aave
+     * @param amount amount to repay
+     **/
+    function _repayDebt(uint256 amount) internal {
+        amount = Math.min(aaveCurrentDebt(), amount);
+
+        IERC20(variableDebtTokenAddr).safeApprove(address(lendingPool), amount);
+
+        lendingPool.repay(variableDebtTokenAddr, amount, 2, address(this));
+    }
+
+    /**
+     * @dev [Internal] Withdraw Lp from Gauge and liq from Curve pool
+     * @param _amount amount to removed
+     **/
+    function _withdrawCurvePool(uint256 _amount) internal returns (uint256) {
+        uint256 initialBal = balanceOfWant();
+
+        uint256 lpRatio = curvePool.get_virtual_price().div(10**18);
+
+        uint256 lpFromWant = _amount.div(lpRatio).mul(10**18);
+
+        uint256 lpToWithdraw = Math.min(lpFromWant, balanceInGauge());
+
+        aaveGauge.withdraw(lpToWithdraw);
+        
+        // look into slippage (TOFIX!!!)
+        curvePool.remove_liquidity_one_coin(_amount, curveId, 0);
+
+        return balanceOfWant().sub(initialBal);
     }
 
     // --- External Actions authorized only to `owner` ---
