@@ -56,6 +56,7 @@ contract Strategy is Ownable, Pausable {
     uint256 public constant MAX_FEE = 10000;
     uint256 public REVENUE_FEE = 1000;
     uint256 public constant ltvDesired = 6000;
+    uint256 public constant slippageMax = 50;
     uint256 public constant HF_REFERENCE = 1.35 ether;
     uint256 public minSellThreshold = 0.5 ether;
     uint256 public depositLimit;
@@ -328,9 +329,12 @@ contract Strategy is Ownable, Pausable {
         uint256 lpToWithdraw = Math.min(lpFromWant, balanceInGauge());
 
         aaveGauge.withdraw(lpToWithdraw);
-        
-        // look into slippage (TOFIX!!!)
-        curvePool.remove_liquidity_one_coin(_amount, curveId, 0);
+
+        uint256 _min_amount = lpToWithdraw.mul(MAX_FEE.sub(slippageMax)).div(
+            MAX_FEE
+        );
+
+        curvePool.remove_liquidity_one_coin(_amount, curveId, _min_amount);
 
         return balanceOfWant().sub(initialBal);
     }
