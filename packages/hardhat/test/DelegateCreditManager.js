@@ -327,7 +327,15 @@ describe("DelegateCreditManager", function () {
     );
 
     expect(delegatorAaveDataPostUnwinding.totalDebtETH).to.be.lt(
-      ethers.utils.parseEther("0.1")
+      ethers.utils.parseEther("0.09")
+    );
+
+    const totalAssets = await strategy.totalAssets();
+
+    console.log(
+      `After withdrawing from strat amount delegated AUM ${ethers.utils.formatEther(
+        totalAssets
+      )}`
     );
   });
 

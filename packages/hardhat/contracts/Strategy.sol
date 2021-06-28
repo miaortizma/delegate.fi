@@ -94,9 +94,9 @@ contract Strategy is Ownable, Pausable {
 
     /// @notice Amount of `want` via lp curve relationship
     function lpCurveToWant() public view returns (uint256) {
-        uint256 lpRatio = curvePool.get_virtual_price().div(10**18);
+        uint256 lpRatio = curvePool.get_virtual_price();
 
-        uint256 wantFromLp = lpRatio.mul(balanceInGauge());
+        uint256 wantFromLp = balanceInGauge().mul(lpRatio).div(10**18);
 
         return wantFromLp;
     }
@@ -349,10 +349,10 @@ contract Strategy is Ownable, Pausable {
     function _withdrawCurvePool(uint256 _amount) internal returns (uint256) {
         uint256 initialBal = balanceOfWant();
 
-        uint256 lpRatio = curvePool.get_virtual_price().div(10**18);
+        uint256 lpRatio = curvePool.get_virtual_price();
 
-        uint256 lpFromWant = _amount.div(lpRatio);
-
+        uint256 lpFromWant = _amount.div(lpRatio).mul(10**18);
+        
         uint256 lpToWithdraw = Math.min(lpFromWant, balanceInGauge());
 
         aaveGauge.withdraw(lpToWithdraw);
