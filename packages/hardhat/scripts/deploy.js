@@ -48,8 +48,7 @@ const main = async () => {
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
     ],
-    ethers.utils.parseEther("500000"),
-    ethers.utils.parseEther("0"),
+    ethers.utils.parseEther("500000")
   ]);
 
   const userReturns = await deploy("UserReturns");

@@ -54,12 +54,13 @@ contract Strategy is Ownable, Pausable {
         address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
     uint256 public constant MAX_FEE = 10000;
-    uin256 public constant MAX_REVENUE = 1500;
+    uint256 public constant MAX_REVENUE = 1500;
     uint256 public REVENUE_FEE = 1000;
     uint256 public constant ltvDesired = 6000;
-    uint256 public constant slippageMax = 50;
+    uint256 public constant slippageMax = 40;
     uint256 public constant HF_REFERENCE = 1.35 ether;
     uint256 public minSellThreshold = 0.5 ether;
+    uint256 internal minThreshold = 0.01 ether;
     uint256 public depositLimit;
 
     event UpdateDepositLimit(uint256 depositLimit, uint256 timestamp);
@@ -70,31 +71,19 @@ contract Strategy is Ownable, Pausable {
         uint256 wmaticHarvested,
         uint256 curveProtocolFee,
         uint256 wmaticProtocolFee,
-        uint256 wantDeposited,
+        uint256 wantConverted,
         uint256 indexed blockNumber
     );
 
-    constructor(
-        address[3] memory _initialConfig,
-        uint256 _limit,
-        int128 _curveId
-    ) public {
+    constructor(address[3] memory _initialConfig, uint256 _limit) public {
         delegateFund = _initialConfig[0];
         want = _initialConfig[1];
         manager = _initialConfig[2];
 
-        (, , address _variableDebtToken) = provider.getReserveTokensAddresses(
-            address(want)
-        );
-
-        variableDebtTokenAddr = _variableDebtToken;
-
         depositLimit = _limit;
 
+        // customised depending on the stablecoin to be used in the strategy
         curveId = 0;
-        /*if (curvePool.underlying_coins(_curveId) == want) {
-            curveId = _curveId;
-        }*/
 
         IERC20(want).safeApprove(address(lendingPool), type(uint256).max);
         IERC20(want).safeApprove(address(curvePool), type(uint256).max);
@@ -107,7 +96,7 @@ contract Strategy is Ownable, Pausable {
     function lpCurveToWant() public view returns (uint256) {
         uint256 lpRatio = curvePool.get_virtual_price().div(10**18);
 
-        uint256 wantFromLp = lpRatio.mul(balanceInGauge()).div(10**18);
+        uint256 wantFromLp = lpRatio.mul(balanceInGauge());
 
         return wantFromLp;
     }
@@ -128,7 +117,7 @@ contract Strategy is Ownable, Pausable {
             address(this)
         );
 
-        return totalCollateralETH.div(aaveOracleRatio());
+        return totalCollateralETH.mul(10**18).div(aaveOracleRatio());
     }
 
     /// @notice Current debt position of strategy in Aave expressed in `want`
@@ -137,7 +126,7 @@ contract Strategy is Ownable, Pausable {
             address(this)
         );
 
-        return totalDebtETH.div(aaveOracleRatio());
+        return totalDebtETH.mul(10**18).div(aaveOracleRatio());
     }
 
     /// @notice Borrowable power, ref `HF_REFERENCE`
@@ -154,7 +143,7 @@ contract Strategy is Ownable, Pausable {
         if (healthFactor > HF_REFERENCE) {
             uint256 safeMax = availableBorrowsETH.mul(9000).div(MAX_FEE);
 
-            return safeMax.div(aaveOracleRatio());
+            return safeMax.mul(10**18).div(aaveOracleRatio());
         }
 
         return 0;
@@ -178,7 +167,7 @@ contract Strategy is Ownable, Pausable {
         (
             uint256 totalCollateralETH,
             uint256 totalDebtETH,
-            uint256 availableBorrowsETH,
+            ,
             uint256 currentLiquidationThreshold,
             ,
 
@@ -186,7 +175,7 @@ contract Strategy is Ownable, Pausable {
 
         uint256 ratio = aaveOracleRatio();
 
-        uint256 amountToWithdrawInEth = amount.mul(ratio);
+        uint256 amountToWithdrawInEth = amount.mul(ratio).div(10**18);
 
         uint256 collateralAfter = totalCollateralETH > amountToWithdrawInEth
             ? totalCollateralETH.sub(amountToWithdrawInEth)
@@ -197,7 +186,7 @@ contract Strategy is Ownable, Pausable {
             : type(uint256).max;
 
         if (ltvAfter == type(uint256).max) {
-            return totalDebtETH.div(ratio);
+            return totalDebtETH.mul(10**18).div(ratio);
         }
 
         uint256 desiredLTV = _desiredLTV(currentLiquidationThreshold);
@@ -209,15 +198,38 @@ contract Strategy is Ownable, Pausable {
         }
 
         return
-            totalDebtETH.sub(targetDebt) < 0
-                ? totalDebtETH.div(ratio)
-                : (totalDebtETH.sub(targetDebt)).div(ratio);
+            totalDebtETH.sub(targetDebt) < minThreshold
+                ? totalDebtETH.mul(10**18).div(ratio)
+                : (totalDebtETH.sub(targetDebt)).mul(10**18).div(ratio);
+    }
+
+    /// @notice max amount that strategy can withdraw
+    function _maxWithdrawalAmount() internal view returns (uint256) {
+        (
+            uint256 totalCollateralETH,
+            uint256 totalDebtETH,
+            ,
+            ,
+            uint256 ltv,
+
+        ) = lendingPool.getUserAccountData(address(this));
+
+        uint256 minETH = ltv > 0
+            ? totalDebtETH.mul(MAX_FEE).div(ltv)
+            : totalCollateralETH;
+
+        if (minETH > totalCollateralETH) {
+            return 0;
+        }
+
+        return
+            (totalCollateralETH.sub(minETH)).mul(10**18).div(aaveOracleRatio());
     }
 
     /// @notice 60% under liquidationThreshold "safe"
     function _desiredLTV(uint256 liquidationThreshold)
         internal
-        view
+        pure
         returns (uint256)
     {
         return liquidationThreshold.mul(ltvDesired).div(MAX_FEE);
@@ -250,12 +262,17 @@ contract Strategy is Ownable, Pausable {
                 depositLimit.sub(totalAssets())
             );
         } else {
-            require(totalAssets().add(_amount) <= depositLimit, "overLimit!");
+            require(
+                totalAssets().add(_amount) <= depositLimit,
+                ">depositLimit!"
+            );
         }
 
         IERC20(want).safeTransferFrom(msg.sender, address(this), amount);
 
         lendingPool.deposit(want, amount, address(this), 0);
+
+        _compoundingAction();
 
         emit Deposited(amount, block.timestamp);
     }
@@ -276,9 +293,13 @@ contract Strategy is Ownable, Pausable {
             _freeAavePositions(wantAmountRequired);
         }
 
-        IERC20(want).safeApprove(_recipient, _amount);
+        uint256 toWithdraw = IERC20(want).balanceOf(address(this)).sub(
+            _wantBalanceIdle
+        );
 
-        IERC20(want).safeTransfer(_recipient, _amount);
+        IERC20(want).safeApprove(_recipient, toWithdraw);
+
+        IERC20(want).safeTransfer(_recipient, toWithdraw);
     }
 
     /**
@@ -294,14 +315,21 @@ contract Strategy is Ownable, Pausable {
      * @param _amount amount to free up
      **/
     function _freeAavePositions(uint256 _amount) internal {
-        require(totalAssets().mul(10**18) >= _amount, "<totalAssets!");
-
         uint256 payDebt = _debtToRepay(_amount);
-        uint256 liquidityAmountRemoved = _withdrawCurvePool(payDebt);
 
-        _repayDebt(liquidityAmountRemoved);
+        if (balanceInGauge() > 0) {
+            uint256 liquidityAmountRemoved = _withdrawCurvePool(payDebt);
 
-        lendingPool.withdraw(want, _amount, address(this));
+            _repayDebt(liquidityAmountRemoved);
+        } else {
+            if (payDebt > 0) {
+                _repayDebt(payDebt);
+            }
+        }
+
+        uint256 withdrawable = Math.min(_amount, _maxWithdrawalAmount());
+
+        lendingPool.withdraw(want, withdrawable, address(this));
     }
 
     /**
@@ -311,9 +339,7 @@ contract Strategy is Ownable, Pausable {
     function _repayDebt(uint256 amount) internal {
         amount = Math.min(aaveCurrentDebt(), amount);
 
-        IERC20(variableDebtTokenAddr).safeApprove(address(lendingPool), amount);
-
-        lendingPool.repay(variableDebtTokenAddr, amount, 2, address(this));
+        lendingPool.repay(want, amount, 2, address(this));
     }
 
     /**
@@ -325,7 +351,7 @@ contract Strategy is Ownable, Pausable {
 
         uint256 lpRatio = curvePool.get_virtual_price().div(10**18);
 
-        uint256 lpFromWant = _amount.div(lpRatio).mul(10**18);
+        uint256 lpFromWant = _amount.div(lpRatio);
 
         uint256 lpToWithdraw = Math.min(lpFromWant, balanceInGauge());
 
@@ -335,7 +361,12 @@ contract Strategy is Ownable, Pausable {
             MAX_FEE
         );
 
-        curvePool.remove_liquidity_one_coin(_amount, curveId, _min_amount);
+        curvePool.remove_liquidity_one_coin(
+            lpToWithdraw,
+            curveId,
+            _min_amount,
+            true
+        );
 
         return balanceOfWant().sub(initialBal);
     }
@@ -370,9 +401,12 @@ contract Strategy is Ownable, Pausable {
         curveBal = curveBal.sub(curveFee);
         wmaticBal = wmaticBal.sub(wmaticFee);
 
-        if (wmaticBal > 0 || curveBal > 0) {
-            _recycleRewards(address(CRV), curveBal);
-            _recycleRewards(address(WMATIC), wmaticBal);
+        if (wmaticBal > 0) {
+            _recycleRewards(WMATIC, wmaticBal);
+        }
+
+        if (curveBal > 0) {
+            _recycleRewards(CRV, curveBal);
         }
 
         uint256 wantAmount = IERC20(want).balanceOf(address(this));
@@ -400,23 +434,25 @@ contract Strategy is Ownable, Pausable {
     function _compoundingAction() internal {
         uint256 borrowTarget = borrowablePower();
 
-        lendingPool.borrow(want, borrowTarget, 2, 0, address(this));
+        if (borrowTarget > 0) {
+            lendingPool.borrow(want, borrowTarget, 2, 0, address(this));
 
-        uint256 wantBorrowed = IERC20(want).balanceOf(address(this));
+            uint256 wantBorrowed = IERC20(want).balanceOf(address(this));
 
-        uint256[3] memory amounts;
+            uint256[3] memory amounts;
 
-        amounts = [wantBorrowed, 0, 0];
+            amounts = [wantBorrowed, 0, 0];
 
-        uint256 min_mint_amount = wantBorrowed
-        .mul(MAX_FEE.sub(MAX_REVENUE))
-        .div(MAX_FEE);
+            uint256 min_mint_amount = wantBorrowed
+            .mul(MAX_FEE.sub(uint256(450)))
+            .div(MAX_FEE);
 
-        curvePool.add_liquidity(amounts, min_mint_amount, true);
+            curvePool.add_liquidity(amounts, min_mint_amount, true);
 
-        uint256 lpCrvBalance = lpCRV.balanceOf(address(this));
+            uint256 lpCrvBalance = lpCRV.balanceOf(address(this));
 
-        aaveGauge.deposit(lpCrvBalance);
+            aaveGauge.deposit(lpCrvBalance);
+        }
     }
 
     /**
@@ -432,6 +468,11 @@ contract Strategy is Ownable, Pausable {
             path[0] = _rewardAddress;
             path[1] = weth;
             path[2] = address(want);
+
+            IERC20(_rewardAddress).safeApprove(
+                address(sushiswapRouter),
+                _rewardAmount
+            );
 
             sushiswapRouter.swapExactTokensForTokens(
                 _rewardAmount,

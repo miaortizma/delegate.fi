@@ -11,7 +11,8 @@ interface ICurvePool {
     function remove_liquidity_one_coin(
         uint256 lp_amount,
         int128 i,
-        uint256 min_amount
+        uint256 min_amount,
+        bool _use_underlying
     ) external;
 
     function underlying_coins(int128 _id) external returns (address);

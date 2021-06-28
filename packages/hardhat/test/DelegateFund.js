@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-const DAI_WHALE = "0xeA78c186B28c5D75c64bb8eCdBdb38F357157C73";
+const DAI_WHALE = "0x00000035bB78d26D67f9246350ACaEc232cAb3E3";
 
 let daiToken;
 let delegateFund;
@@ -56,9 +56,9 @@ describe("DelegateFund", function () {
 
     const present = Math.floor(new Date().getTime() / 1000);
 
-    // Moving forward on time for the 2 days delay + a bit of time, so it is not reverted
+    // Advanced in time!
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      present + DELAY_PLUS_TINY_TIME,
+      present + DELAY_PLUS_TINY_TIME * 2,
     ]);
     await ethers.provider.send("evm_mine", []);
 
