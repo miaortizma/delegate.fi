@@ -3,6 +3,7 @@ const fs = require("fs");
 const chalk = require("chalk");
 const { config, ethers, tenderly, run } = require("hardhat");
 const { utils } = require("ethers");
+const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 const R = require("ramda");
 
@@ -20,6 +21,9 @@ const addresses = {
       lendingPool: "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf",
       dataProvider: "0x7551b5D2763519d4e37e8B81929D336De671d46d",
       debtToken: "0x75c4d1Fb84429023170086f06E682DcbBF537b7d",
+    },
+    superfluid: {
+      resolver: "0xE0cc76334405EE8b39213E620587d815967af39C",
     },
   },
   ethereum: {
@@ -39,13 +43,21 @@ const chain = "polygon";
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");
 
+  const sf = new SuperfluidSDK.Framework({
+    ethers: ethers.provider,
+    resolverAddress: "0xE0cc76334405EE8b39213E620587d815967af39C",
+    tokens: ["DAI"],
+  });
+  await sf.initialize();
+
   const delegateFund = await deploy("DelegateFund");
   const karma = await deploy("Karma");
 
-  const delegateCreditManager = await deploy("DelegateCreditManager",
-    [addresses[chain].aave.lendingPool,
-    addresses[chain].aave.dataProvider]
-  );
+  const delegateCreditManager = await deploy("DelegateCreditManager", [
+    addresses[chain].aave.lendingPool,
+    addresses[chain].aave.dataProvider,
+  ]);
+
   const strategy = await deploy("Strategy", [
     [
       "0x0000000000000000000000000000000000000000",
@@ -56,6 +68,14 @@ const main = async () => {
     ethers.utils.parseEther("0"),
   ]);
   const userReturns = await deploy("UserReturns");
+
+  const DividendRightsToken = await deploy("DividendRightsToken", [
+    "Dividend Rights Token",
+    "DRT",
+    sf.tokens.DAIx.address,
+    sf.host.address,
+    sf.agreements.ida.address,
+  ]);
 
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",
@@ -85,8 +105,9 @@ const deploy = async (
     const gasUsed = deployed.deployTransaction.gasLimit.mul(
       deployed.deployTransaction.gasPrice
     );
-    extraGasInfo = `${utils.formatEther(gasUsed)} ETH, tx hash ${deployed.deployTransaction.hash
-      }`;
+    extraGasInfo = `${utils.formatEther(gasUsed)} ETH, tx hash ${
+      deployed.deployTransaction.hash
+    }`;
   }
 
   console.log(

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 const { utils } = require("ethers");
 const fs = require("fs");
 const chalk = require("chalk");
