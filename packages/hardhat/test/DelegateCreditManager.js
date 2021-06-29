@@ -340,7 +340,7 @@ describe("DelegateCreditManager", function () {
     );
   });
 
-  /*it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
     await lendingPool
       .connect(first_delegator)
       .withdraw(
@@ -389,5 +389,5 @@ describe("DelegateCreditManager", function () {
     expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(
       ethers.utils.parseEther("70")
     );
-  });*/
+  });
 });
