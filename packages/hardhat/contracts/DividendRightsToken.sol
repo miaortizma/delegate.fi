@@ -20,9 +20,6 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
     ISuperfluid private _host;
     IInstantDistributionAgreementV1 private _ida;
 
-    // use callbacks to track approved subscriptions
-    mapping(address => bool) public isSubscribing;
-
     constructor(
         string memory name,
         string memory symbol,
@@ -33,12 +30,6 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
         _cashToken = cashToken;
         _host = host;
         _ida = ida;
-
-        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
-            SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP |
-            SuperAppDefinitions.AFTER_AGREEMENT_TERMINATED_NOOP;
-
-        _host.registerApp(configWord);
 
         _host.callAgreement(
             _ida,
@@ -58,85 +49,6 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
         return 0;
     }
 
-    function beforeAgreementCreated(
-        ISuperToken superToken,
-        address agreementClass,
-        bytes32, /* agreementId */
-        bytes calldata, /*agreementData*/
-        bytes calldata /*ctx*/
-    ) external view override returns (bytes memory data) {
-        require(superToken == _cashToken, "DRT: Unsupported cash token");
-        require(agreementClass == address(_ida), "DRT: Unsupported agreement");
-        return new bytes(0);
-    }
-
-    function afterAgreementCreated(
-        ISuperToken superToken,
-        address, /* agreementClass */
-        bytes32 agreementId,
-        bytes calldata, /*agreementData*/
-        bytes calldata, /*cbdata*/
-        bytes calldata ctx
-    ) external override returns (bytes memory newCtx) {
-        _checkSubscription(superToken, ctx, agreementId);
-        newCtx = ctx;
-    }
-
-    function beforeAgreementUpdated(
-        ISuperToken superToken,
-        address agreementClass,
-        bytes32, /* agreementId */
-        bytes calldata, /*agreementData*/
-        bytes calldata /*ctx*/
-    ) external view override returns (bytes memory data) {
-        require(superToken == _cashToken, "DRT: Unsupported cash token");
-        require(agreementClass == address(_ida), "DRT: Unsupported agreement");
-        return new bytes(0);
-    }
-
-    function afterAgreementUpdated(
-        ISuperToken superToken,
-        address, /* agreementClass */
-        bytes32 agreementId,
-        bytes calldata, /*agreementData*/
-        bytes calldata, /*cbdata*/
-        bytes calldata ctx
-    ) external override returns (bytes memory newCtx) {
-        _checkSubscription(superToken, ctx, agreementId);
-        newCtx = ctx;
-    }
-
-    function _checkSubscription(
-        ISuperToken superToken,
-        bytes calldata ctx,
-        bytes32 agreementId
-    ) private {
-        ISuperfluid.Context memory context = _host.decodeCtx(ctx);
-        // only interested in the subscription approval callbacks
-        if (
-            context.agreementSelector ==
-            IInstantDistributionAgreementV1.approveSubscription.selector
-        ) {
-            address publisher;
-            uint32 indexId;
-            bool approved;
-            uint128 units;
-            uint256 pendingDistribution;
-            (publisher, indexId, approved, units, pendingDistribution) = _ida
-            .getSubscriptionByID(superToken, agreementId);
-
-            // sanity checks for testing purpose
-            require(publisher == address(this), "DRT: publisher mismatch");
-            require(indexId == INDEX_ID, "DRT: publisher mismatch");
-
-            if (approved) {
-                isSubscribing[
-                    context.msgSender /* subscriber */
-                ] = true;
-            }
-        }
-    }
-
     /// @dev Issue new `amount` of giths to `beneficiary`
     function issue(address beneficiary, uint256 amount) external onlyOwner {
         // then adjust beneficiary subscription units
@@ -153,6 +65,26 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
                 INDEX_ID,
                 beneficiary,
                 uint128(currentAmount) + uint128(amount),
+                new bytes(0) // placeholder ctx
+            ),
+            new bytes(0) // user data
+        );
+    }
+
+    /// @dev Burn `amount` DRT and update subscription to IDA of `account`
+    function burn(address account, uint256 amount) external onlyOwner {
+        ERC20._burn(account, amount);
+
+        uint256 currentAmount = balanceOf(account);
+
+        _host.callAgreement(
+            _ida,
+            abi.encodeWithSelector(
+                _ida.updateSubscription.selector,
+                _cashToken,
+                INDEX_ID,
+                account,
+                uint128(currentAmount) - uint128(amount),
                 new bytes(0) // placeholder ctx
             ),
             new bytes(0) // user data
