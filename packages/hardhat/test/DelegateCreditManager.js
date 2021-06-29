@@ -226,7 +226,7 @@ describe("DelegateCreditManager", function () {
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
 
     const present = Math.floor(new Date().getTime() / 1000);
-    
+
     for (let i = 0; i < DAYS_ITERATION; i++) {
       await ethers.provider.send("evm_setNextBlockTimestamp", [
         present + DELAY_ONE_DAY * (i + 1),
@@ -281,11 +281,9 @@ describe("DelegateCreditManager", function () {
           crvRevenue
         )}`
       );
-    }
 
-    /*  --- ISSUE WITH CRV REWARDS ???
-    *expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
-    */
+      expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
+    }
 
     const aprox_day_blocks = 7200;
 
