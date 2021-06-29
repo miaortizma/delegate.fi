@@ -54,8 +54,8 @@ contract Strategy is Ownable, Pausable {
         address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
     uint256 public constant MAX_FEE = 10000;
-    uint256 public constant MAX_REVENUE = 1500;
-    uint256 public REVENUE_FEE = 1000;
+    uint256 public constant MAX_REVENUE = 2000;
+    uint256 public REVENUE_FEE = 1500;
     uint256 public constant ltvDesired = 6000;
     uint256 public constant slippageMax = 40;
     uint256 public constant HF_REFERENCE = 1.35 ether;
@@ -509,7 +509,7 @@ contract Strategy is Ownable, Pausable {
      * @param _revenueFee Set new revenue fee, max 15%
      **/
     function setRevenueFee(uint256 _revenueFee) external onlyOwner {
-        require(_revenueFee <= MAX_REVENUE, "too_high!");
+        require(_revenueFee <= MAX_REVENUE, ">MAX_REVENUE!");
         REVENUE_FEE = _revenueFee;
     }
 

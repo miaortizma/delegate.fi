@@ -205,7 +205,10 @@ describe("DelegateCreditManager", function () {
 
     expect(currentBorrowAllowance).to.eq(0);
 
-    const amountDelegated = await delegateCreditManager.delegators(DAI_WHALE);
+    const amountDelegated = await delegateCreditManager.delegators(
+      DAI_WHALE,
+      addresses[chain].erc20Tokens.DAI
+    );
 
     console.log(
       `Amount delegated by ${DAI_WHALE} to manager: `,
@@ -236,7 +239,8 @@ describe("DelegateCreditManager", function () {
       const totalAssets = await strategy.totalAssets();
 
       console.log(
-        `After ${DELAY_ONE_DAY * (i + 1)} secs, the strategy at ${strategy.address
+        `After ${DELAY_ONE_DAY * (i + 1)} secs, the strategy at ${
+          strategy.address
         } with a total AUM of ${ethers.utils.formatEther(
           totalAssets
         )} triggers HARVEST() iteration ${i + 1}...`
@@ -305,14 +309,22 @@ describe("DelegateCreditManager", function () {
   it("Delegating credit - stop allowance & withdraw from strategy", async () => {
     await delegateCreditManager
       .connect(first_delegator)
-      .delegateCreditLine(
+      .freeDelegatedCapital(
         addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther("0")
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
     expect(await daiToken.balanceOf(strategy.address)).to.eq(
       ethers.utils.parseEther("0")
     );
+
+    await debtToken
+      .connect(first_delegator)
+      .approveDelegation(
+        delegateCreditManager.address,
+        ethers.utils.parseEther("0")
+      );
+
     expect(
       await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)
     ).to.eq(0);
@@ -323,7 +335,7 @@ describe("DelegateCreditManager", function () {
 
     // it should leave some dust, i.e, minimal interest, depending on the size of delegator ofc
     console.log(
-      "Current debt post -> unwinding action: ",
+      `Current delegator ${DAI_WHALE} debt post -> unwinding action: `,
       ethers.utils.formatEther(delegatorAaveDataPostUnwinding.totalDebtETH)
     );
 

@@ -20,7 +20,6 @@ contract DelegateCreditManager is Ownable {
 
     struct DelegatorInfo {
         uint256 amountDelegated;
-        uint256 earnings;
         uint256 amountDeployed;
     }
 
@@ -37,9 +36,22 @@ contract DelegateCreditManager is Ownable {
     uint256 public constant MAX_REF = 10000;
     uint256 public constant SAFE_REF = 4500;
 
-    mapping(address => DelegatorInfo) public delegators;
+    mapping(address => mapping(address => DelegatorInfo)) public delegators;
     mapping(address => StrategyInfo) public strategies; // perhaps, for simplicity one strategy per asset
     mapping(address => uint256) public totalDelegatedAmounts;
+
+    event DeployedDelegatedCapital(
+        address delegator,
+        uint256 amountDeployed,
+        address strategy,
+        uint256 timestamp
+    );
+    event FreeDelegatedCapital(
+        address delegator,
+        uint256 amountRemoved,
+        address strategy,
+        uint256 timestamp
+    );
 
     constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider)
         public
@@ -67,7 +79,7 @@ contract DelegateCreditManager is Ownable {
     }
 
     /**
-     * @dev Allows user to first deposit in Aave and then delegate
+     * @dev Allows user to first deposit in Aave and then delegate (point of contact user:protocol)
      * @param _assetDeposit The asset which is deposited in Aave
      * @param _assetStrategy The asset used in the strategy
      * @param _amount The amount deposited in Aave of _assetDeposit type
@@ -93,98 +105,98 @@ contract DelegateCreditManager is Ownable {
         );
 
         uint256 safeDelegableAmount = availableBorrowsETH
+        .mul(10**18)
         .mul(SAFE_REF)
         .div(MAX_REF)
         .div(ratioOracle);
 
-        _delegateCreditLine(_assetStrategy, safeDelegableAmount.mul(10**18));
+        _delegateCreditLine(_assetStrategy, safeDelegableAmount);
     }
 
+    /// @dev Allows user to delegate to our protocol (point of contact user:protocol)
     function delegateCreditLine(address _asset, uint256 _amount) external {
         _delegateCreditLine(_asset, _amount);
     }
 
     /**
-     * @dev Allows user to delegate to our protocol (first point of contact user:protocol)
      * @param _asset The asset which is delegated
      * @param _amount The amount delegated to us to manage
-     * @notice we do not emit event as  `approveDelegation` emits -> BorrowAllowanceDelegated
      **/
     function _delegateCreditLine(address _asset, uint256 _amount) internal {
         (, , address variableDebtTokenAddress) = provider
         .getReserveTokensAddresses(_asset);
 
-        IDebtToken(variableDebtTokenAddress).approveDelegation(
-            address(this),
-            _amount // something is not working as intended (TOFIX!)
-        );
+        uint256 borrowableAllowance = IDebtToken(variableDebtTokenAddress)
+        .borrowAllowance(msg.sender, address(this));
 
-        DelegatorInfo storage delegator = delegators[msg.sender];
+        DelegatorInfo storage delegator = delegators[msg.sender][_asset];
 
-        if (_amount >= delegator.amountDelegated) {
-            uint256 diffAllowance = _amount.sub(delegator.amountDelegated);
-
+        if (borrowableAllowance > 0) {
             totalDelegatedAmounts[_asset] = totalDelegatedAmounts[_asset].add(
-                diffAllowance
+                borrowableAllowance
             );
 
-            delegator.amountDelegated = _amount;
+            delegator.amountDelegated = delegator.amountDelegated.add(
+                borrowableAllowance
+            );
 
             deployCapital(_asset, msg.sender);
-
-            // we should issue aka mint here some shares to track the revenue we should provide to each delegator
-        } else {
-            uint256 diffAllowance = delegator.amountDelegated.sub(_amount);
-
-            totalDelegatedAmounts[_asset] = totalDelegatedAmounts[_asset].sub(
-                diffAllowance
-            );
-
-            delegator.amountDelegated = _amount;
-
-            unwindCapital(_asset, msg.sender);
-
-            // we should burn here the shares given to the users accordingly
         }
     }
 
+    /// @dev Allows user to remove from protocol delegated funds (point of contact user:protocol)
+    function freeDelegatedCapital(address _asset, uint256 _amount) external {
+        unwindCapital(_asset, msg.sender, _amount);
+    }
+
     /**
-     * @dev Unwind the desired amount from the strategy after decreasing the allowance, repay allowance debt
      * @param _asset The asset which is going to be remove from strategy
      * @param _delegator Delegator address, use to update mapping
+     * @param _amount Amount to unwind from our system and repay Aaave
      **/
-    function unwindCapital(address _asset, address _delegator) internal {
+    function unwindCapital(
+        address _asset,
+        address _delegator,
+        uint256 _amount
+    ) internal {
+        DelegatorInfo storage delegator = delegators[_delegator][_asset];
+
+        require(_amount <= delegator.amountDelegated, ">amountDelegated");
+
         StrategyInfo storage strategyInfo = strategies[_asset];
 
-        require(strategyInfo.strategyAddress != address(0), "notSet!");
+        require(strategyInfo.strategyAddress != address(0), "notSetStrategy!");
 
-        DelegatorInfo storage delegator = delegators[_delegator];
+        require(delegator.amountDeployed > 0, "noDeployedCapital!");
 
-        require(delegator.amountDeployed > 0, "noDeployed!");
+        delegator.amountDelegated = delegator.amountDelegated.sub(_amount);
 
-        if (delegator.amountDelegated < delegator.amountDeployed) {
-            uint256 amountToUnwind = delegator.amountDeployed.sub(
-                delegator.amountDelegated
-            );
+        delegator.amountDeployed = delegator.amountDeployed.sub(_amount);
 
-            require(amountToUnwind > 0, "0!");
+        totalDelegatedAmounts[_asset] = totalDelegatedAmounts[_asset].add(
+            _amount
+        );
 
-            IStrategy(strategyInfo.strategyAddress).withdraw(
-                address(this),
-                amountToUnwind
-            );
+        IStrategy(strategyInfo.strategyAddress).withdraw(
+            address(this),
+            _amount
+        );
 
-            uint256 repayableAmount = Math.min(
-                amountToUnwind,
-                IERC20(_asset).balanceOf(address(this))
-            );
+        uint256 repayableAmount = Math.min(
+            _amount,
+            IERC20(_asset).balanceOf(address(this))
+        );
 
-            lendingPool.repay(_asset, repayableAmount, 2, _delegator);
+        lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
-            strategyInfo.amountWorking = strategyInfo.amountWorking.sub(
-                amountToUnwind
-            );
-        }
+        //_DividendsRightsToken burning mechanism
+
+        emit FreeDelegatedCapital(
+            _delegator,
+            repayableAmount,
+            strategyInfo.strategyAddress,
+            block.timestamp
+        );
     }
 
     /**
@@ -195,9 +207,9 @@ contract DelegateCreditManager is Ownable {
     function deployCapital(address _asset, address _delegator) internal {
         StrategyInfo storage strategyInfo = strategies[_asset];
 
-        require(strategyInfo.strategyAddress != address(0), "notSet!");
+        require(strategyInfo.strategyAddress != address(0), "notSetStrategy!");
 
-        DelegatorInfo storage delegator = delegators[_delegator];
+        DelegatorInfo storage delegator = delegators[_delegator][_asset];
 
         if (delegator.amountDelegated >= delegator.amountDeployed) {
             uint256 amountToBorrow = delegator.amountDelegated.sub(
@@ -216,6 +228,15 @@ contract DelegateCreditManager is Ownable {
 
             strategyInfo.amountWorking = strategyInfo.amountWorking.add(
                 amountToBorrow
+            );
+
+            //_DividendsRightsToken minting mechanism
+
+            emit DeployedDelegatedCapital(
+                _delegator,
+                amountToBorrow,
+                strategyInfo.strategyAddress,
+                block.timestamp
             );
         }
     }
