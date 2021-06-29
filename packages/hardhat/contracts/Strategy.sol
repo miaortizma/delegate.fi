@@ -34,7 +34,7 @@ contract Strategy is Ownable, Pausable {
     ICurvePool public curvePool =
         ICurvePool(address(0x445FE580eF8d70FF569aB36e80c647af338db351));
     IAaveGauge public aaveGauge =
-        IAaveGauge(address(0xe381C25de995d62b453aF8B931aAc84fcCaa7A62));
+        IAaveGauge(address(0x19793B454D3AfC7b454F206Ffe95aDE26cA6912c));
     IERC20 public lpCRV =
         IERC20(address(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171));
     int128 public curveId;
@@ -182,7 +182,7 @@ contract Strategy is Ownable, Pausable {
             : 0;
 
         uint256 ltvAfter = collateralAfter > 0
-            ? totalDebtETH.mul(MAX_FEE).div(collateralAfter)
+            ? totalDebtETH.mul(MAX_FEE).div(collateralAfter) // double check this line!!
             : type(uint256).max;
 
         if (ltvAfter == type(uint256).max) {

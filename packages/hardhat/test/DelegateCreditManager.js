@@ -7,6 +7,7 @@ const DELEGATE_AMOUNTS = ["50000", "100000", "200000"];
 
 const DELAY_ONE_DAY = 86400;
 const YEAR_BLOCKS = 2300000;
+const DAYS_ITERATION = 1;
 
 let delegateCreditManager;
 let delegateFund;
@@ -225,60 +226,62 @@ describe("DelegateCreditManager", function () {
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
 
     const present = Math.floor(new Date().getTime() / 1000);
+    
+    for (let i = 0; i < DAYS_ITERATION; i++) {
+      await ethers.provider.send("evm_setNextBlockTimestamp", [
+        present + DELAY_ONE_DAY * (i + 1),
+      ]);
+      await ethers.provider.send("evm_mine", []);
 
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      present + DELAY_ONE_DAY,
-    ]);
-    await ethers.provider.send("evm_mine", []);
+      const totalAssets = await strategy.totalAssets();
 
-    const totalAssets = await strategy.totalAssets();
+      console.log(
+        `After ${DELAY_ONE_DAY * (i + 1)} secs, the strategy at ${strategy.address
+        } with a total AUM of ${ethers.utils.formatEther(
+          totalAssets
+        )} triggers HARVEST() iteration ${i + 1}...`
+      );
 
-    console.log(
-      `After ${DELAY_ONE_DAY} secs, the strategy at ${strategy.address
-      } with a total AUM of ${ethers.utils.formatEther(
-        totalAssets
-      )} triggers HARVEST()...`
-    );
+      const txHarvest = await strategy.harvest();
 
-    const txHarvest = await strategy.harvest();
+      const receiptHarvest = await txHarvest.wait();
 
-    const receiptHarvest = await txHarvest.wait();
+      const eventHarvestArgs = receiptHarvest.events?.filter((x) => {
+        return x.event == "Harvest";
+      })[0].args;
 
-    const eventHarvestArgs = receiptHarvest.events?.filter((x) => {
-      return x.event == "Harvest";
-    })[0].args;
+      console.log(
+        `wantConverted: ${ethers.utils.formatEther(
+          eventHarvestArgs.wantConverted
+        )}`
+      );
+      console.log(
+        `wmaticHarvested: ${ethers.utils.formatEther(
+          eventHarvestArgs.wmaticHarvested
+        )}`
+      );
+      console.log(
+        `curveHarvested: ${ethers.utils.formatEther(
+          eventHarvestArgs.curveHarvested
+        )}`
+      );
 
-    console.log(
-      `wantConverted: ${ethers.utils.formatEther(
-        eventHarvestArgs.wantConverted
-      )}`
-    );
-    console.log(
-      `wmaticHarvested: ${ethers.utils.formatEther(
-        eventHarvestArgs.wmaticHarvested
-      )}`
-    );
-    console.log(
-      `curveHarvested: ${ethers.utils.formatEther(
-        eventHarvestArgs.curveHarvested
-      )}`
-    );
+      const wmaticRevenue = await wmaticToken.balanceOf(delegateFund.address);
+      console.log(
+        `Revenue of WMATIC in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
+          wmaticRevenue
+        )}`
+      );
 
-    const wmaticRevenue = await wmaticToken.balanceOf(delegateFund.address);
-    console.log(
-      `Revenue of WMATIC in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
-        wmaticRevenue
-      )}`
-    );
+      expect(wmaticRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
 
-    expect(wmaticRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
-
-    const crvRevenue = await crvToken.balanceOf(delegateFund.address);
-    console.log(
-      `Revenue of CRV in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
-        crvRevenue
-      )}`
-    );
+      const crvRevenue = await crvToken.balanceOf(delegateFund.address);
+      console.log(
+        `Revenue of CRV in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
+          crvRevenue
+        )}`
+      );
+    }
 
     /*  --- ISSUE WITH CRV REWARDS ???
     *expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
@@ -299,7 +302,7 @@ describe("DelegateCreditManager", function () {
       (YEAR_BLOCKS / aprox_day_blocks);
 
     console.log(`Aprox APY: ${(apy / 100).toFixed(3)}%`);
-  }).timeout(80000);
+  }).timeout(180000);
 
   it("Delegating credit - stop allowance & withdraw from strategy", async () => {
     await delegateCreditManager
