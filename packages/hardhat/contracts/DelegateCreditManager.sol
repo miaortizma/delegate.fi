@@ -13,6 +13,7 @@ import "./interface/IDebtToken.sol";
 import "./interface/IProtocolDataProvider.sol";
 import "./interface/IStrategy.sol";
 import "./interface/IAaveOracle.sol";
+import "./interface/IDividendRightsToken.sol";
 
 contract DelegateCreditManager is Ownable {
     using SafeMath for uint256;
@@ -32,6 +33,8 @@ contract DelegateCreditManager is Ownable {
     IProtocolDataProvider provider;
     address public constant oracleAddress =
         0x0229F777B0fAb107F9591a41d5F02E4e98dB6f2d;
+
+    address public drt;
 
     uint256 public constant MAX_REF = 10000;
     uint256 public constant SAFE_REF = 4500;
@@ -53,11 +56,14 @@ contract DelegateCreditManager is Ownable {
         uint256 timestamp
     );
 
-    constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider)
-        public
-    {
+    constructor(
+        ILendingPool _lendingPool,
+        IProtocolDataProvider _provider,
+        address _drt
+    ) public {
         lendingPool = _lendingPool;
         provider = _provider;
+        drt = _drt;
     }
 
     /**
@@ -190,6 +196,7 @@ contract DelegateCreditManager is Ownable {
         lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
         //_DividendsRightsToken burning mechanism
+        IDividenRightsToken(drt).burn(_delegator, _repayableAmount);
 
         emit FreeDelegatedCapital(
             _delegator,
@@ -231,6 +238,7 @@ contract DelegateCreditManager is Ownable {
             );
 
             //_DividendsRightsToken minting mechanism
+            IDividenRightsToken(drt).issue(_delegator, amountToBorrow);
 
             emit DeployedDelegatedCapital(
                 _delegator,

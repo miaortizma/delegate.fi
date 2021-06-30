@@ -109,7 +109,7 @@ before(async () => {
   );
 });
 
-describe.skip("DelegateCreditManager", function () {
+describe("DelegateCreditManager", function () {
   it("Add strategy for DAI asset", async () => {
     console.log("Strategy deployed at address: ", strategy.address);
     await delegateCreditManager.setNewStrategy(
