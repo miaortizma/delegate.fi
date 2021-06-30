@@ -16,6 +16,7 @@ import "./interface/IAaveIncentivesController.sol";
 import "./interface/IProtocolDataProvider.sol";
 import "./interface/IAaveOracle.sol";
 import "./interface/IUniswapV2Router02.sol";
+import "./interface/ISuperToken.sol";
 
 contract Strategy is Ownable, Pausable {
     using SafeMath for uint256;
@@ -39,6 +40,9 @@ contract Strategy is Ownable, Pausable {
         IERC20(address(0xE7a24EF0C5e95Ffb0f6684b813A78F2a3AD7D171));
     int128 public curveId;
 
+    ISuperToken public DAIx =
+        ISuperToken(address(0x1305F6B6Df9Dc47159D12Eb7aC2804d4A33173c2));
+
     IUniswapV2Router02 sushiswapRouter =
         IUniswapV2Router02(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
     address public constant weth =
@@ -47,6 +51,7 @@ contract Strategy is Ownable, Pausable {
     address public delegateFund;
     address public want;
     address public manager;
+    address public drt;
 
     address public constant CRV =
         address(0x172370d5Cd63279eFa6d502DAB29171933a610AF);
@@ -75,10 +80,11 @@ contract Strategy is Ownable, Pausable {
         uint256 indexed blockNumber
     );
 
-    constructor(address[3] memory _initialConfig, uint256 _limit) public {
+    constructor(address[4] memory _initialConfig, uint256 _limit) public {
         delegateFund = _initialConfig[0];
         want = _initialConfig[1];
         manager = _initialConfig[2];
+        drt = _initialConfig[3];
 
         depositLimit = _limit;
 
@@ -87,6 +93,7 @@ contract Strategy is Ownable, Pausable {
 
         IERC20(want).safeApprove(address(lendingPool), type(uint256).max);
         IERC20(want).safeApprove(address(curvePool), type(uint256).max);
+        IERC20(want).safeApprove(address(DAIx), type(uint256).max);
         lpCRV.safeApprove(address(aaveGauge), type(uint256).max);
     }
 
@@ -352,7 +359,7 @@ contract Strategy is Ownable, Pausable {
         uint256 lpRatio = curvePool.get_virtual_price();
 
         uint256 lpFromWant = _amount.div(lpRatio).mul(10**18);
-        
+
         uint256 lpToWithdraw = Math.min(lpFromWant, balanceInGauge());
 
         aaveGauge.withdraw(lpToWithdraw);
@@ -411,7 +418,9 @@ contract Strategy is Ownable, Pausable {
 
         uint256 wantAmount = IERC20(want).balanceOf(address(this));
 
-        lendingPool.deposit(want, wantAmount, address(this), 0);
+        uint256 amountToDeposit = _revenueToDistributor(wantAmount);
+
+        lendingPool.deposit(want, amountToDeposit, address(this), 0);
 
         _compoundingAction();
 
@@ -420,9 +429,18 @@ contract Strategy is Ownable, Pausable {
             wmaticBal,
             curveFee,
             wmaticFee,
-            wantAmount,
+            amountToDeposit,
             block.number
         );
+    }
+
+    /// @dev Sends 50% of revenue to DRT contract - test
+    function _revenueToDistributor(uint256 _amount) internal returns (uint256) {
+        uint256 revenue = _amount.mul(uint256(5000)).div(MAX_FEE);
+
+        DAIx.upgradeTo(drt, revenue, "");
+
+        return IERC20(want).balanceOf(address(this));
     }
 
     /// @dev [External] Compound positions

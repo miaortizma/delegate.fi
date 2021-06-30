@@ -45,12 +45,21 @@ const main = async () => {
   });
   await sf.initialize();
 
+  const dividendRightsToken = await deploy("DividendRightsToken", [
+    "Dividend Rights Token",
+    "DRT",
+    sf.tokens.DAIx.address,
+    sf.host.address,
+    sf.agreements.ida.address,
+  ]);
+
   const delegateFund = await deploy("DelegateFund");
   const karma = await deploy("Karma");
 
   const delegateCreditManager = await deploy("DelegateCreditManager", [
     addresses[chain].aave.lendingPool,
     addresses[chain].aave.dataProvider,
+    dividendRightsToken.address,
   ]);
 
   const strategy = await deploy("Strategy", [
@@ -58,19 +67,12 @@ const main = async () => {
       delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
+      dividendRightsToken.address,
     ],
     ethers.utils.parseEther("500000"),
   ]);
 
   const userReturns = await deploy("UserReturns");
-
-  const DividendRightsToken = await deploy("DividendRightsToken", [
-    "Dividend Rights Token",
-    "DRT",
-    sf.tokens.DAIx.address,
-    sf.host.address,
-    sf.agreements.ida.address,
-  ]);
 
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",

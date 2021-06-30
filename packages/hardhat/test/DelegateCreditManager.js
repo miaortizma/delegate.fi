@@ -126,6 +126,7 @@ before(async () => {
       delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
+      drt.address
     ],
     ethers.utils.parseEther("500000") // Cap deposits up to 500k
   );

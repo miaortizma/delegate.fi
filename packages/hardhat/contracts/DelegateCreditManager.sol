@@ -195,8 +195,7 @@ contract DelegateCreditManager is Ownable {
 
         lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
-        //_DividendsRightsToken burning mechanism
-        IDividenRightsToken(drt).burn(_delegator, repayableAmount);
+        IDividendRightsToken(drt).burn(_delegator, repayableAmount);
 
         emit FreeDelegatedCapital(
             _delegator,
@@ -236,9 +235,8 @@ contract DelegateCreditManager is Ownable {
             strategyInfo.amountWorking = strategyInfo.amountWorking.add(
                 amountToBorrow
             );
-
-            //_DividendsRightsToken minting mechanism
-            IDividenRightsToken(drt).issue(_delegator, amountToBorrow);
+            
+            IDividendRightsToken(drt).issue(_delegator, amountToBorrow);
 
             emit DeployedDelegatedCapital(
                 _delegator,
