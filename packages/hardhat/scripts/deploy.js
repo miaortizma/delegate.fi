@@ -7,11 +7,6 @@ const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 const R = require("ramda");
 
-const LENDING_POOL = "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf";
-const PROTOCOL_DATA_PROVIDER = "0x7551b5D2763519d4e37e8B81929D336De671d46d";
-
-const DAI = "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";
-
 const addresses = {
   polygon: {
     erc20Tokens: {
@@ -60,13 +55,13 @@ const main = async () => {
 
   const strategy = await deploy("Strategy", [
     [
-      "0x0000000000000000000000000000000000000000",
+      delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
     ],
     ethers.utils.parseEther("500000"),
-    ethers.utils.parseEther("0"),
   ]);
+
   const userReturns = await deploy("UserReturns");
 
   const DividendRightsToken = await deploy("DividendRightsToken", [

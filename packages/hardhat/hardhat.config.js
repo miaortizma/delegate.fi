@@ -10,15 +10,6 @@ require("@nomiclabs/hardhat-etherscan");
 
 const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 
-/*
-      📡 This is where you configure your deploy configuration for 🏗 scaffold-eth
-
-      check out `packages/scripts/deploy.js` to customize your deployment
-
-      out of the box it will auto deploy anything in the `contracts` folder and named *.sol
-      plus it will use *.args for constructor args
-*/
-
 //
 // Select the network you want to deploy to here:
 //
@@ -55,7 +46,7 @@ module.exports = {
       loggingEnabled: false,
       forking: {
         url: process.env.MATIC_MAINNET_URL,
-        block: 16131093,
+        block: 16227133,
       },
     },
     matic: {

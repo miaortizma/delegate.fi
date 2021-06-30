@@ -1,23 +1,30 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-const DAI_WHALE = "0xeA78c186B28c5D75c64bb8eCdBdb38F357157C73";
+const DAI_WHALE = "0x00000035bB78d26D67f9246350ACaEc232cAb3E3";
 const WHALE_DEPOSIT_AMOUNT = "500000";
+const DELEGATE_AMOUNTS = ["50000", "100000", "200000"];
+
+const DELAY_ONE_DAY = 86400;
+const YEAR_BLOCKS = 2300000;
+const DAYS_ITERATION = 1;
 
 let delegateCreditManager;
+let delegateFund;
 let strategy;
-let daiToken;
+let daiToken, wmaticToken, crvToken;
 
 // --- AAVE contracts ---
 let lendingPool, dataProvider, debtToken;
 
 let first_delegator, second_delegator, third_delegator;
 
-// --- Polygon addresses ---
 const addresses = {
   polygon: {
     erc20Tokens: {
       DAI: "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",
+      WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+      CRV: "0x172370d5Cd63279eFa6d502DAB29171933a610AF",
     },
     aave: {
       lendingPool: "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf",
@@ -37,13 +44,11 @@ const addresses = {
   },
 };
 
-// can be also polygon, but cannot manage to plug the forking for polygon
 const chain = "polygon";
 
 before(async () => {
   [admin] = await ethers.getSigners();
 
-  // Accounts with lots of DAI
   await hre.network.provider.request({
     method: "hardhat_impersonateAccount",
     params: [DAI_WHALE],
@@ -64,6 +69,16 @@ before(async () => {
     addresses[chain].erc20Tokens.DAI
   );
 
+  wmaticToken = await ethers.getContractAt(
+    "TestErc20",
+    addresses[chain].erc20Tokens.WMATIC
+  );
+
+  crvToken = await ethers.getContractAt(
+    "TestErc20",
+    addresses[chain].erc20Tokens.CRV
+  );
+
   debtToken = await ethers.getContractAt(
     "IDebtToken",
     addresses[chain].aave.debtToken
@@ -78,16 +93,19 @@ before(async () => {
     dataProvider.address
   );
 
+  const DelegateFund = await ethers.getContractFactory("DelegateFund");
+
+  delegateFund = await DelegateFund.deploy();
+
   const Strategy = await ethers.getContractFactory("Strategy");
 
   strategy = await Strategy.deploy(
     [
-      "0x0000000000000000000000000000000000000000", // temporarily 0x address for testing
+      delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
     ],
-    ethers.utils.parseEther("500000"), // we set 500k limit for testing
-    ethers.utils.parseEther("0")
+    ethers.utils.parseEther("500000") // Cap deposits up to 500k
   );
 });
 
@@ -100,7 +118,7 @@ describe.skip("DelegateCreditManager", function () {
     );
   });
 
-  it("Delegating credit - allowance in DelegateCreditManager & deposit in strategy", async () => {
+  it(`Delegating credit - triggers delegateCreditLine & harvest after ${DELAY_ONE_DAY} secs`, async () => {
     console.log(
       `Delegator ${DAI_WHALE} Balance of DAI: `,
       ethers.utils.formatEther(await daiToken.balanceOf(DAI_WHALE))
@@ -150,15 +168,14 @@ describe.skip("DelegateCreditManager", function () {
       .connect(first_delegator)
       .approveDelegation(
         delegateCreditManager.address,
-        ethers.utils.parseEther("10000")
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
-    // revert msg: '59' (Borrow allowance not enough), pendant to fix!
     await delegateCreditManager
       .connect(first_delegator)
       .delegateCreditLine(
         addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther("10000")
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
     // in theory after executing the above method, now it should exist debt
@@ -167,7 +184,7 @@ describe.skip("DelegateCreditManager", function () {
     );
 
     console.log(
-      "Current debt: ",
+      `Current delegators ${DAI_WHALE} debt: `,
       ethers.utils.formatEther(delegatorAaveDataPostDelegating.totalDebtETH)
     );
 
@@ -188,7 +205,10 @@ describe.skip("DelegateCreditManager", function () {
 
     expect(currentBorrowAllowance).to.eq(0);
 
-    const amountDelegated = await delegateCreditManager.delegators(DAI_WHALE);
+    const amountDelegated = await delegateCreditManager.delegators(
+      DAI_WHALE,
+      addresses[chain].erc20Tokens.DAI
+    );
 
     console.log(
       `Amount delegated by ${DAI_WHALE} to manager: `,
@@ -208,22 +228,103 @@ describe.skip("DelegateCreditManager", function () {
 
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
 
+    const present = Math.floor(new Date().getTime() / 1000);
+
+    for (let i = 0; i < DAYS_ITERATION; i++) {
+      await ethers.provider.send("evm_setNextBlockTimestamp", [
+        present + DELAY_ONE_DAY * (i + 1),
+      ]);
+      await ethers.provider.send("evm_mine", []);
+
+      const totalAssets = await strategy.totalAssets();
+
+      console.log(
+        `After ${DELAY_ONE_DAY * (i + 1)} secs, the strategy at ${
+          strategy.address
+        } with a total AUM of ${ethers.utils.formatEther(
+          totalAssets
+        )} triggers HARVEST() iteration ${i + 1}...`
+      );
+
+      const txHarvest = await strategy.harvest();
+
+      const receiptHarvest = await txHarvest.wait();
+
+      const eventHarvestArgs = receiptHarvest.events?.filter((x) => {
+        return x.event == "Harvest";
+      })[0].args;
+
+      console.log(
+        `wantConverted: ${ethers.utils.formatEther(
+          eventHarvestArgs.wantConverted
+        )}`
+      );
+      console.log(
+        `wmaticHarvested: ${ethers.utils.formatEther(
+          eventHarvestArgs.wmaticHarvested
+        )}`
+      );
+      console.log(
+        `curveHarvested: ${ethers.utils.formatEther(
+          eventHarvestArgs.curveHarvested
+        )}`
+      );
+
+      const wmaticRevenue = await wmaticToken.balanceOf(delegateFund.address);
+      console.log(
+        `Revenue of WMATIC in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
+          wmaticRevenue
+        )}`
+      );
+
+      expect(wmaticRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
+
+      const crvRevenue = await crvToken.balanceOf(delegateFund.address);
+      console.log(
+        `Revenue of CRV in DelegateFund after ${DELAY_ONE_DAY} secs: ${ethers.utils.formatEther(
+          crvRevenue
+        )}`
+      );
+
+      expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
+    }
+
+    const aprox_day_blocks = 7200;
+
+    const totalAssetsPostHarvest = await strategy.totalAssets();
+
     console.log(
-      "--------------------------------------------------------------------------------------"
+      `totalAssetsPostHarvest: ${ethers.utils.formatEther(
+        totalAssetsPostHarvest
+      )}`
     );
-  }).timeout(60000);
+
+    const apy =
+      (totalAssetsPostHarvest / amountDelegated.amountDelegated) *
+      (YEAR_BLOCKS / aprox_day_blocks);
+
+    console.log(`Aprox APY: ${(apy / 100).toFixed(3)}%`);
+  }).timeout(180000);
 
   it("Delegating credit - stop allowance & withdraw from strategy", async () => {
     await delegateCreditManager
       .connect(first_delegator)
-      .delegateCreditLine(
+      .freeDelegatedCapital(
         addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther("0")
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
     expect(await daiToken.balanceOf(strategy.address)).to.eq(
       ethers.utils.parseEther("0")
     );
+
+    await debtToken
+      .connect(first_delegator)
+      .approveDelegation(
+        delegateCreditManager.address,
+        ethers.utils.parseEther("0")
+      );
+
     expect(
       await debtToken.borrowAllowance(DAI_WHALE, delegateCreditManager.address)
     ).to.eq(0);
@@ -232,22 +333,26 @@ describe.skip("DelegateCreditManager", function () {
       DAI_WHALE
     );
 
-    // it should leave some dust, i.e, minimal interest
+    // it should leave some dust, i.e, minimal interest, depending on the size of delegator ofc
     console.log(
-      "Current debt post -> unwinding action: ",
+      `Current delegator ${DAI_WHALE} debt post -> unwinding action: `,
       ethers.utils.formatEther(delegatorAaveDataPostUnwinding.totalDebtETH)
     );
 
     expect(delegatorAaveDataPostUnwinding.totalDebtETH).to.be.lt(
-      ethers.utils.parseEther("0.000001")
+      ethers.utils.parseEther("0.09")
     );
 
+    const totalAssets = await strategy.totalAssets();
+
     console.log(
-      "--------------------------------------------------------------------------------------"
+      `After withdrawing from strat amount delegated AUM ${ethers.utils.formatEther(
+        totalAssets
+      )}`
     );
   });
 
-  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
     await lendingPool
       .connect(first_delegator)
       .withdraw(
@@ -273,7 +378,7 @@ describe.skip("DelegateCreditManager", function () {
       .connect(first_delegator)
       .approveDelegation(
         delegateCreditManager.address,
-        ethers.utils.parseEther("250000")
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
     await delegateCreditManager
@@ -295,10 +400,6 @@ describe.skip("DelegateCreditManager", function () {
 
     expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(
       ethers.utils.parseEther("70")
-    );
-
-    console.log(
-      "--------------------------------------------------------------------------------------"
     );
   });
 });
