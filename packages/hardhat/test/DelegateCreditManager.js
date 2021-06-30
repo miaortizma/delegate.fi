@@ -91,7 +91,7 @@ before(async () => {
   );
 });
 
-describe("DelegateCreditManager", function () {
+describe.skip("DelegateCreditManager", function () {
   it("Add strategy for DAI asset", async () => {
     console.log("Strategy deployed at address: ", strategy.address);
     await delegateCreditManager.setNewStrategy(
@@ -258,7 +258,9 @@ describe("DelegateCreditManager", function () {
 
     const delegatorAaveData = await lendingPool.getUserAccountData(DAI_WHALE);
 
-    expect(delegatorAaveData.totalCollateralETH).to.lt(ethers.utils.parseEther("0.1"));
+    expect(delegatorAaveData.totalCollateralETH).to.lt(
+      ethers.utils.parseEther("0.1")
+    );
 
     await daiToken
       .connect(first_delegator)
@@ -282,14 +284,18 @@ describe("DelegateCreditManager", function () {
         ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
       );
 
-    const delegatorAaveDataPostDeposit = await lendingPool.getUserAccountData(DAI_WHALE);
+    const delegatorAaveDataPostDeposit = await lendingPool.getUserAccountData(
+      DAI_WHALE
+    );
 
     console.log(
       `Current debt of ${DAI_WHALE} after interacting via -> depositAaveAndDelegate: `,
       ethers.utils.formatEther(delegatorAaveDataPostDeposit.totalDebtETH)
     );
 
-    expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(ethers.utils.parseEther("70"));
+    expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(
+      ethers.utils.parseEther("70")
+    );
 
     console.log(
       "--------------------------------------------------------------------------------------"

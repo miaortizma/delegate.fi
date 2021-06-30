@@ -2,6 +2,7 @@
 pragma solidity >=0.7.3 <0.9.0;
 pragma experimental ABIEncoderV2;
 
+import "hardhat/console.sol";
 import {ISuperfluid, ISuperToken, SuperAppBase, SuperAppDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
 import {IInstantDistributionAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IInstantDistributionAgreementV1.sol";
 
@@ -73,9 +74,9 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
 
     /// @dev Burn `amount` DRT and update subscription to IDA of `account`
     function burn(address account, uint256 amount) external onlyOwner {
-        ERC20._burn(account, amount);
-
         uint256 currentAmount = balanceOf(account);
+
+        ERC20._burn(account, amount);
 
         _host.callAgreement(
             _ida,
@@ -91,6 +92,21 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
         );
     }
 
+    /// @dev needs testing
+    function approveSubscription() public {
+        require(false);
+        _host.callAgreement(
+            _ida,
+            abi.encodeWithSelector(
+                _ida.approveSubscription.selector,
+                _cashToken,
+                INDEX_ID,
+                new bytes(0) // placeholder ctx
+            ),
+            new bytes(0) // user data
+        );
+    }
+
     /// @dev Distribute `amount` of cash among all token holders
     function distribute(uint256 cashAmount) external onlyOwner {
         (uint256 actualCashAmount, ) = _ida.calculateDistribution(
@@ -99,8 +115,13 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
             INDEX_ID,
             cashAmount
         );
-
+        console.log("INDEX_ID", INDEX_ID);
+        console.log("ActualCashAmount", actualCashAmount);
+        console.log("Balance Of Owner", _cashToken.balanceOf(owner()));
         _cashToken.transferFrom(owner(), address(this), actualCashAmount);
+
+        console.log("Distribute");
+        console.log("BalanceOf:", _cashToken.balanceOf(address(this)));
 
         _host.callAgreement(
             _ida,
@@ -113,6 +134,10 @@ contract DividendRightsToken is Ownable, ERC20, SuperAppBase {
             ),
             new bytes(0) // user data
         );
+
+        console.log("After Distribute");
+        console.log("BalanceOf:", _cashToken.balanceOf(address(this)));
+        console.log("Balance Of Owner", _cashToken.balanceOf(owner()));
     }
 
     /// @dev ERC20._transfer override

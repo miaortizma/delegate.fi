@@ -25,7 +25,7 @@ before(async () => {
   );
 });
 
-describe("DelegateFund", function () {
+describe.skip("DelegateFund", function () {
   beforeEach(async () => {
     const DelegateFund = await ethers.getContractFactory("DelegateFund");
     delegateFund = await DelegateFund.deploy();

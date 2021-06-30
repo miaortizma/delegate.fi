@@ -61,6 +61,8 @@ before(async () => {
     tokens: ["DAI"],
   });
   await sf.initialize();
+  daix = sf.tokens.DAIx;
+  dai = sf.tokens.DAI;
 
   await hre.network.provider.request({
     method: "hardhat_impersonateAccount",
@@ -68,21 +70,13 @@ before(async () => {
   });
   first_delegator = ethers.provider.getSigner(DAI_WHALE);
 
-  daiToken = await ethers.getContractAt(
-    "TestErc20",
-    addresses[chain].erc20Tokens.DAI
-  );
-
-  //daiX = await ethers.getContractAt()
-
   wmaticToken = await ethers.getContractAt(
     "TestErc20",
     addresses[chain].erc20Tokens.WMATIC
   );
 
-  const DRT = await ethers.getContractFactory("DividendRightsToken");
-
-  daix = await ethers.getContractAt("ISuperToken", sf.tokens.DAIx.address);
+  const DRTFactory = await ethers.getContractFactory("DividendRightsToken");
+  //daix = await ethers.getContractAt("ISuperToken", sf.tokens.DAIx.address);
 
   const drtArgs = [
     "Dividend Rights Token",
@@ -91,7 +85,7 @@ before(async () => {
     sf.host.address,
     sf.agreements.ida.address,
   ];
-  drt = await DRT.deploy(...drtArgs);
+  drt = await DRTFactory.deploy(...drtArgs);
 });
 
 describe("Deployment", function () {
@@ -102,22 +96,78 @@ describe("Deployment", function () {
 });
 
 describe("Transactions", function () {
+  it("Should revert without approval", async () => {
+    await expect(daix.connect(first_delegator).upgrade(100)).to.be.reverted;
+  });
   it("Should upgrade DAI to DAIx", async () => {
-    let daix = sf.tokens.DAIx;
-    let dai = sf.tokens.DAI;
-
     //const bob = sf.user({ address: DAI_WHALE, token: daix.address });
     await dai
       .connect(first_delegator)
       .approve(daix.address, "1" + "0".repeat(42));
+    expect(await daix.balanceOf(first_delegator._address)).to.be.eq(0);
     await daix.connect(first_delegator).upgrade(100);
-    expect(await daix.balanceOf(first_delegator._address)).to.be.gt(0);
+    expect(await daix.balanceOf(first_delegator._address)).to.be.eq(100);
   });
   it("Issue DRT tokens", async () => {
-    console.log("DRT deployed at address: ", drt.address);
+    // Issue DRT tokens
+    expect(await drt.totalSupply()).to.equal(0);
     expect(await drt.balanceOf(addr1.address)).to.eq(0);
-    drt.issue(addr1.address, 50);
-    drt.issue(addr2.address, 50);
-    expect(await drt.totalSupply()).to.equal(100);
+    expect(await drt.balanceOf(addr2.address)).to.eq(0);
+
+    await drt.issue(addr1.address, 50);
+    await drt.issue(addr2.address, 50);
+
+    await drt.burn(addr1.address, 50);
+    await drt.burn(addr2.address, 50);
+
+    expect(await drt.totalSupply()).to.equal(0);
+    expect(await drt.balanceOf(addr1.address)).to.eq(0);
+    expect(await drt.balanceOf(addr1.address)).to.eq(0);
+  });
+
+  it("Should distribute cash token", async () => {
+    // give DAI to owner
+    // note: first_delegator address is accessed as _address, not address
+    await dai
+      .connect(first_delegator)
+      .approve(owner.address, "1" + "0".repeat(42));
+    await dai.connect(first_delegator).transfer(owner.address, 10000);
+
+    // owner approves and upgrades DAI to DAIx, also approves drt contract.
+    await dai.approve(daix.address, "1" + "0".repeat(42));
+    await daix.upgrade(4000);
+
+    // issue DRT and update distribution
+
+    await drt.issue(addr1.address, 50);
+    await drt.issue(addr2.address, 50);
+
+    await sf.host.connect(addr1).callAgreement(
+      sf.agreements.ida.address,
+      sf.agreements.ida.contract.methods
+        .approveSubscription(daix.address, drt.address, 0, "0x")
+        .encodeABI(),
+      "0x" // user data
+    );
+    await sf.host.connect(addr2).callAgreement(
+      sf.agreements.ida.address,
+      sf.agreements.ida.contract.methods
+        .approveSubscription(daix.address, drt.address, 0, "0x")
+        .encodeABI(),
+      "0x" // user data
+    );
+
+    // approve allowance of DAIx and distribute
+    await daix.approve(drt.address, "1" + "0".repeat(42));
+    await drt.distribute(1000);
+
+    expect(await daix.balanceOf(addr1.address)).to.be.eq(500);
+    expect(await daix.balanceOf(addr2.address)).to.be.eq(500);
+
+    await drt.burn(addr2.address, 50);
+    await drt.distribute(1000);
+
+    expect(await daix.balanceOf(addr1.address)).to.be.eq(1500);
+    expect(await daix.balanceOf(addr2.address)).to.be.eq(500);
   });
 });
