@@ -375,7 +375,7 @@ describe("DelegateCreditManager", function () {
     );
   });
 
-  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
     await lendingPool
       .connect(first_delegator)
       .withdraw(
