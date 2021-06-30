@@ -9,11 +9,6 @@ const DELEGATE_AMOUNTS = ["50000", "100000", "200000"];
 const DELAY_ONE_DAY = 86400;
 const YEAR_BLOCKS = 2300000;
 
-let delegateCreditManager;
-let delegateFund;
-let strategy;
-let daiToken, wmaticToken, crvToken;
-
 let sf;
 let owner;
 let addr1;
@@ -69,11 +64,6 @@ before(async () => {
     params: [DAI_WHALE],
   });
   first_delegator = ethers.provider.getSigner(DAI_WHALE);
-
-  wmaticToken = await ethers.getContractAt(
-    "TestErc20",
-    addresses[chain].erc20Tokens.WMATIC
-  );
 
   const DRTFactory = await ethers.getContractFactory("DividendRightsToken");
   //daix = await ethers.getContractAt("ISuperToken", sf.tokens.DAIx.address);
@@ -169,5 +159,18 @@ describe("Transactions", function () {
 
     expect(await daix.balanceOf(addr1.address)).to.be.eq(1500);
     expect(await daix.balanceOf(addr2.address)).to.be.eq(500);
+  });
+
+  it("Should distribute with a transferred ownership", async () => {
+    await drt.transferOwnership(first_delegator._address);
+    expect(await daix.balanceOf(first_delegator._address)).to.be.eq(100);
+
+    await daix
+      .connect(first_delegator)
+      .approve(drt.address, "1" + "0".repeat(42));
+    await drt.connect(first_delegator).distribute(100);
+
+    expect(await daix.balanceOf(first_delegator._address)).to.be.eq(0);
+    expect(await daix.balanceOf(addr1.address)).to.be.eq(1600);
   });
 });

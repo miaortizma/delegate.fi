@@ -196,7 +196,7 @@ contract DelegateCreditManager is Ownable {
         lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
         //_DividendsRightsToken burning mechanism
-        IDividenRightsToken(drt).burn(_delegator, _repayableAmount);
+        IDividenRightsToken(drt).burn(_delegator, repayableAmount);
 
         emit FreeDelegatedCapital(
             _delegator,

@@ -1,5 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 const DAI_WHALE = "0x00000035bB78d26D67f9246350ACaEc232cAb3E3";
 const WHALE_DEPOSIT_AMOUNT = "500000";
@@ -49,6 +50,13 @@ const chain = "polygon";
 before(async () => {
   [admin] = await ethers.getSigners();
 
+  sf = new SuperfluidSDK.Framework({
+    ethers: ethers.provider,
+    resolverAddress: "0xE0cc76334405EE8b39213E620587d815967af39C",
+    tokens: ["DAI"],
+  });
+  await sf.initialize();
+
   await hre.network.provider.request({
     method: "hardhat_impersonateAccount",
     params: [DAI_WHALE],
@@ -84,14 +92,28 @@ before(async () => {
     addresses[chain].aave.debtToken
   );
 
+  const DRTFactory = await ethers.getContractFactory("DividendRightsToken");
+
+  const drtArgs = [
+    "Dividend Rights Token",
+    "DRT",
+    sf.tokens.DAIx.address,
+    sf.host.address,
+    sf.agreements.ida.address,
+  ];
+  drt = await DRTFactory.deploy(...drtArgs);
+
   const DelegateCreditManager = await ethers.getContractFactory(
     "DelegateCreditManager"
   );
 
   delegateCreditManager = await DelegateCreditManager.deploy(
     lendingPool.address,
-    dataProvider.address
+    dataProvider.address,
+    drt.address
   );
+
+  await drt.transferOwnership(delegateCreditManager.address);
 
   const DelegateFund = await ethers.getContractFactory("DelegateFund");
 
@@ -352,7 +374,7 @@ describe("DelegateCreditManager", function () {
     );
   });
 
-  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
     await lendingPool
       .connect(first_delegator)
       .withdraw(
