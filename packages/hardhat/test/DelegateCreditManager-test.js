@@ -136,7 +136,7 @@ before(async () => {
   await drt.transferOwnership(delegateCreditManager.address);
 });
 
-describe("DelegateCreditManager", function () {
+describe.only("DelegateCreditManager", function () {
   it("Add strategy for DAI asset", async () => {
     console.log("Strategy deployed at address: ", strategy.address);
     await delegateCreditManager.setNewStrategy(
@@ -325,19 +325,19 @@ describe("DelegateCreditManager", function () {
     const revenueWhaleInDAIx = await daix.balanceOf(DAI_WHALE);
     const whaleDividendsShares = await drt.balanceOf(DAI_WHALE);
 
-    expect(whaleDividendsShares).to.be.eq(ethers.utils.parseEther("200000"));
+    console.log(`Delegators holds ${whaleDividendsShares} dividends shares`);
+
+    expect(whaleDividendsShares).to.be.eq("20000000");
 
     console.log(
       `Delegator with ${ethers.utils.formatEther(
         whaleDividendsShares
-      )} dividends shares received ${revenueWhaleInDAIx} DAIx after 1st harvest`
+      )} dividends shares received ${ethers.utils.formatEther(
+        revenueWhaleInDAIx
+      )} DAIx after 1st harvest`
     );
 
-    /*ethers.utils.formatEther(
-        revenueWhaleInDAIx
-      )*/
-
-    expect(revenueWhaleInDAIx).to.be.gte(0);
+    expect(revenueWhaleInDAIx).to.be.gt(0);
 
     const DAIX_DRT_BALANCE = await daix.balanceOf(drt.address);
 
