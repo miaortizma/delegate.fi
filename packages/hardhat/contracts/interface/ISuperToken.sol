@@ -6,6 +6,8 @@ interface ISuperToken {
 
     function transfer(address recipient, uint256 amount) external returns (bool);
 
+    function approve(address recipient, uint256 amount) external;
+
     function upgrade(uint256 amount) external;
 
     function balanceOf(address account) external view returns(uint256 balance);

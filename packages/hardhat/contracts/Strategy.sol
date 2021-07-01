@@ -440,6 +440,8 @@ contract Strategy is Ownable, Pausable {
         uint256 revenue = _amount.mul(uint256(5000)).div(MAX_FEE);
 
         DAIx.upgrade(revenue);
+        
+        DAIx.approve(drt, revenue);
 
         IDividendRightsToken(drt).distribute(revenue);
 
