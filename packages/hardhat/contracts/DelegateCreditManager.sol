@@ -38,6 +38,7 @@ contract DelegateCreditManager is Ownable {
 
     uint256 public constant MAX_REF = 10000;
     uint256 public constant SAFE_REF = 4500;
+    uint256 public SHARE_DIVISOR = 0.01 ether;
 
     mapping(address => mapping(address => DelegatorInfo)) public delegators;
     mapping(address => StrategyInfo) public strategies; // perhaps, for simplicity one strategy per asset
@@ -195,7 +196,7 @@ contract DelegateCreditManager is Ownable {
 
         lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
-        IDividendRightsToken(drt).burn(_delegator, repayableAmount);
+        IDividendRightsToken(drt).burn(_delegator, repayableAmount.div(SHARE_DIVISOR));
 
         emit FreeDelegatedCapital(
             _delegator,
@@ -236,7 +237,7 @@ contract DelegateCreditManager is Ownable {
                 amountToBorrow
             );
             
-            IDividendRightsToken(drt).issue(_delegator, amountToBorrow);
+            IDividendRightsToken(drt).issue(_delegator, amountToBorrow.div(SHARE_DIVISOR));
 
             emit DeployedDelegatedCapital(
                 _delegator,
