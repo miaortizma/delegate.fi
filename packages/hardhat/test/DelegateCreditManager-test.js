@@ -136,7 +136,7 @@ before(async () => {
   await drt.transferOwnership(delegateCreditManager.address);
 });
 
-describe("DelegateCreditManager", function () {
+describe.skip("DelegateCreditManager", function () {
   it("Add strategy for DAI asset", async () => {
     console.log("Strategy deployed at address: ", strategy.address);
     await delegateCreditManager.setNewStrategy(
@@ -206,8 +206,9 @@ describe("DelegateCreditManager", function () {
       );
 
     // in theory after executing the above method, now it should exist debt
-    const delegatorAaveDataPostDelegating =
-      await lendingPool.getUserAccountData(DAI_WHALE);
+    const delegatorAaveDataPostDelegating = await lendingPool.getUserAccountData(
+      DAI_WHALE
+    );
 
     console.log(
       `Current delegators ${DAI_WHALE} debt: `,
@@ -241,8 +242,9 @@ describe("DelegateCreditManager", function () {
       ethers.utils.formatEther(amountDelegated.amountDelegated)
     );
 
-    const StrategyAaaveStatusAfterFirstDeposit =
-      await lendingPool.getUserAccountData(strategy.address);
+    const StrategyAaaveStatusAfterFirstDeposit = await lendingPool.getUserAccountData(
+      strategy.address
+    );
 
     console.log(
       "Current collateral deposited in Aave by the strategy: ",
@@ -253,15 +255,19 @@ describe("DelegateCreditManager", function () {
 
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
 
-    await sf.host.connect(first_delegator).callAgreement(
-      sf.agreements.ida.address,
-      sf.agreements.ida.contract.methods
-        .approveSubscription(daix.address, drt.address, 0, "0x")
-        .encodeABI(),
-      "0x"
-    );
+    await sf.host
+      .connect(first_delegator)
+      .callAgreement(
+        sf.agreements.ida.address,
+        sf.agreements.ida.contract.methods
+          .approveSubscription(daix.address, drt.address, 0, "0x")
+          .encodeABI(),
+        "0x"
+      );
 
     const present = Math.floor(new Date().getTime() / 1000);
+
+    console.log("Total DRT shares: ", await drt.totalSupply());
 
     for (let i = 0; i < DAYS_ITERATION; i++) {
       await ethers.provider.send("evm_setNextBlockTimestamp", [

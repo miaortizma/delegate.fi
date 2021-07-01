@@ -110,6 +110,7 @@ describe("Transactions", function () {
 
     await drt.issue(addr1.address, 50);
     await drt.issue(addr2.address, 50);
+    expect(await drt.totalSupply()).to.equal(100);
 
     await drt.burn(addr1.address, 50);
     await drt.burn(addr2.address, 50);
@@ -125,11 +126,11 @@ describe("Transactions", function () {
     await dai
       .connect(first_delegator)
       .approve(owner.address, "1" + "0".repeat(42));
-    await dai.connect(first_delegator).transfer(owner.address, 10000);
+    await dai.connect(first_delegator).transfer(owner.address, 2000);
 
     // owner approves and upgrades DAI to DAIx, also approves drt contract.
     await dai.approve(daix.address, "1" + "0".repeat(42));
-    await daix.upgrade(4000);
+    await daix.upgrade(2000);
 
     // issue DRT and update distribution
 
