@@ -438,7 +438,9 @@ contract Strategy is Ownable, Pausable {
     function _revenueToDistributor(uint256 _amount) internal returns (uint256) {
         uint256 revenue = _amount.mul(uint256(5000)).div(MAX_FEE);
 
-        DAIx.upgradeTo(drt, revenue, "");
+        DAIx.upgrade(revenue);
+        
+        DAIx.transfer(drt, revenue);
 
         return IERC20(want).balanceOf(address(this));
     }

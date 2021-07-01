@@ -13,7 +13,7 @@ const DAYS_ITERATION = 1;
 let delegateCreditManager;
 let delegateFund;
 let strategy;
-let daiToken, wmaticToken, crvToken;
+let daiToken, wmaticToken, crvToken, daix;
 
 // --- AAVE contracts ---
 let lendingPool, dataProvider, debtToken;
@@ -56,6 +56,8 @@ before(async () => {
     tokens: ["DAI"],
   });
   await sf.initialize();
+
+  daix = sf.tokens.DAIx;
 
   await hre.network.provider.request({
     method: "hardhat_impersonateAccount",
@@ -309,8 +311,14 @@ describe("DelegateCreditManager", function () {
         )}`
       );
 
-      expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
+      expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.01"));
     }
+    
+    const DAIX_DRT_BALANCE = await daix.balanceOf(drt.address);
+
+    console.log(`Current DAIx balance in DRT: ${ethers.utils.formatEther(DAIX_DRT_BALANCE)}`);
+
+    expect(DAIX_DRT_BALANCE).to.be.gte(0);
 
     const aprox_day_blocks = 7200;
 
