@@ -9,11 +9,6 @@ import {IInstantDistributionAgreementV1} from "@superfluid-finance/ethereum-cont
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-/**
- * The dividends rights token show cases two use cases
- * 1. Use Instant distribution agreement to distribute tokens to token holders.
- * 2. Use SuperApp framework to update `isSubscribing` when new subscription is approved by token holder.
- */
 contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
     uint32 public constant INDEX_ID = 0;
 
@@ -55,19 +50,13 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
         renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function decimals() public view virtual override returns (uint8) {
-        return 0;
-    }
-
     /// @dev Issue new `amount` of giths to `beneficiary`
     function issue(address beneficiary, uint256 amount)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        // then adjust beneficiary subscription units
         uint256 currentAmount = balanceOf(beneficiary);
-
-        // first try to do ERC20 mint
+        
         ERC20._mint(beneficiary, amount);
 
         _host.callAgreement(
@@ -127,14 +116,21 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
         external
         onlyRole(DISTRIBUTOR_ROLE)
     {
+        console.log("cashAmount: ", cashAmount);
+
         (uint256 actualCashAmount, ) = _ida.calculateDistribution(
             _cashToken,
             address(this),
             INDEX_ID,
             cashAmount
         );
-        _cashToken.transferFrom(msg.sender, address(this), actualCashAmount);
 
+        console.log("actualCashAmount: ", actualCashAmount);
+        _cashToken.transferFrom(msg.sender, address(this), actualCashAmount);
+        console.log(
+            "_cashToken balance: ",
+            _cashToken.balanceOf(address(this))
+        );
         _host.callAgreement(
             _ida,
             abi.encodeWithSelector(

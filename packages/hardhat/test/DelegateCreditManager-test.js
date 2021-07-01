@@ -206,9 +206,8 @@ describe("DelegateCreditManager", function () {
       );
 
     // in theory after executing the above method, now it should exist debt
-    const delegatorAaveDataPostDelegating = await lendingPool.getUserAccountData(
-      DAI_WHALE
-    );
+    const delegatorAaveDataPostDelegating =
+      await lendingPool.getUserAccountData(DAI_WHALE);
 
     console.log(
       `Current delegators ${DAI_WHALE} debt: `,
@@ -242,9 +241,8 @@ describe("DelegateCreditManager", function () {
       ethers.utils.formatEther(amountDelegated.amountDelegated)
     );
 
-    const StrategyAaaveStatusAfterFirstDeposit = await lendingPool.getUserAccountData(
-      strategy.address
-    );
+    const StrategyAaaveStatusAfterFirstDeposit =
+      await lendingPool.getUserAccountData(strategy.address);
 
     console.log(
       "Current collateral deposited in Aave by the strategy: ",
@@ -254,6 +252,14 @@ describe("DelegateCreditManager", function () {
     );
 
     expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
+
+    await sf.host.connect(first_delegator).callAgreement(
+      sf.agreements.ida.address,
+      sf.agreements.ida.contract.methods
+        .approveSubscription(daix.address, drt.address, 0, "0x")
+        .encodeABI(),
+      "0x"
+    );
 
     const present = Math.floor(new Date().getTime() / 1000);
 
@@ -315,10 +321,31 @@ describe("DelegateCreditManager", function () {
 
       expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.01"));
     }
-    
+
+    const revenueWhaleInDAIx = await daix.balanceOf(DAI_WHALE);
+    const whaleDividendsShares = await drt.balanceOf(DAI_WHALE);
+
+    expect(whaleDividendsShares).to.be.eq(ethers.utils.parseEther("200000"));
+
+    console.log(
+      `Delegator with ${ethers.utils.formatEther(
+        whaleDividendsShares
+      )} dividends shares received ${revenueWhaleInDAIx} DAIx after 1st harvest`
+    );
+
+    /*ethers.utils.formatEther(
+        revenueWhaleInDAIx
+      )*/
+
+    expect(revenueWhaleInDAIx).to.be.gte(0);
+
     const DAIX_DRT_BALANCE = await daix.balanceOf(drt.address);
 
-    console.log(`Current DAIx balance in DRT: ${ethers.utils.formatEther(DAIX_DRT_BALANCE)}`);
+    console.log(
+      `Current DAIx balance in DRT: ${ethers.utils.formatEther(
+        DAIX_DRT_BALANCE
+      )}`
+    );
 
     expect(DAIX_DRT_BALANCE).to.be.gte(0);
 
