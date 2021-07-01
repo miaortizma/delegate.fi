@@ -2,12 +2,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
-const DAI_WHALE = "0x00000035bB78d26D67f9246350ACaEc232cAb3E3";
-const WHALE_DEPOSIT_AMOUNT = "500000";
-const DELEGATE_AMOUNTS = ["50000", "100000", "200000"];
-
-const DELAY_ONE_DAY = 86400;
-const YEAR_BLOCKS = 2300000;
+const DAI_WHALE = "0x60e8b62C7Da32ff62fcd4Ab934B75d2d28FE7501";
 
 let sf;
 let owner;
@@ -20,7 +15,7 @@ let distributorRole;
 let adminRole;
 
 // --- AAVE contracts ---
-let first_delegator, second_delegator, third_delegator;
+let first_delegator;
 
 const addresses = {
   polygon: {
@@ -68,7 +63,6 @@ before(async () => {
   first_delegator = ethers.provider.getSigner(DAI_WHALE);
 
   const DRTFactory = await ethers.getContractFactory("DividendRightsToken");
-  //daix = await ethers.getContractAt("ISuperToken", sf.tokens.DAIx.address);
 
   const drtArgs = [
     "Dividend Rights Token",
@@ -198,8 +192,7 @@ describe("Transactions", function () {
 
     let delegateCreditManager = await DelegateCreditManager.deploy(
       lendingPool.address,
-      dataProvider.address,
-      drt.address
+      dataProvider.address
     );
     await drt
       .connect(first_delegator)

@@ -111,8 +111,7 @@ before(async () => {
 
   delegateCreditManager = await DelegateCreditManager.deploy(
     lendingPool.address,
-    dataProvider.address,
-    drt.address
+    dataProvider.address
   );
 
   const DelegateFund = await ethers.getContractFactory("DelegateFund");
@@ -136,12 +135,20 @@ before(async () => {
   await drt.transferOwnership(delegateCreditManager.address);
 });
 
-describe.only("DelegateCreditManager", function () {
+describe("DelegateCreditManager", function () {
   it("Add strategy for DAI asset", async () => {
     console.log("Strategy deployed at address: ", strategy.address);
     await delegateCreditManager.setNewStrategy(
       addresses[chain].erc20Tokens.DAI,
       strategy.address
+    );
+  });
+
+  it("Add Dividends for DAI asset", async () => {
+    console.log("Dividends deployed at address: ", drt.address);
+    await delegateCreditManager.setNewDividend(
+      addresses[chain].erc20Tokens.DAI,
+      drt.address
     );
   });
 

@@ -34,16 +34,25 @@ contract DelegateCreditManager is Ownable {
     address public constant oracleAddress =
         0x0229F777B0fAb107F9591a41d5F02E4e98dB6f2d;
 
-    address public drt;
-
     uint256 public constant MAX_REF = 10000;
     uint256 public constant SAFE_REF = 4500;
     uint256 public SHARE_DIVISOR = 0.01 ether;
 
     mapping(address => mapping(address => DelegatorInfo)) public delegators;
-    mapping(address => StrategyInfo) public strategies; // perhaps, for simplicity one strategy per asset
+    mapping(address => StrategyInfo) public strategies;
+    mapping(address => address) public dividends;
     mapping(address => uint256) public totalDelegatedAmounts;
 
+    event StrategyAdded(
+        address want,
+        address strategyAddress,
+        uint256 timestamp
+    );
+    event DividendAdded(
+        address want,
+        address dividendsAddress,
+        uint256 timestamp
+    );
     event DeployedDelegatedCapital(
         address delegator,
         uint256 amountDeployed,
@@ -57,14 +66,11 @@ contract DelegateCreditManager is Ownable {
         uint256 timestamp
     );
 
-    constructor(
-        ILendingPool _lendingPool,
-        IProtocolDataProvider _provider,
-        address _drt
-    ) public {
+    constructor(ILendingPool _lendingPool, IProtocolDataProvider _provider)
+        public
+    {
         lendingPool = _lendingPool;
         provider = _provider;
-        drt = _drt;
     }
 
     /**
@@ -83,6 +89,19 @@ contract DelegateCreditManager is Ownable {
 
         IERC20(_asset).approve(_strategy, type(uint256).max);
         IERC20(_asset).approve(address(lendingPool), type(uint256).max);
+
+        emit StrategyAdded(_asset, _strategy, block.timestamp);
+    }
+
+    /**
+     * @dev Sets the new dividends contract address to mint/burn appropriately
+     * @param _asset Asset which the drt will use as underlying
+     * @param _drt The new dividend address
+     **/
+    function setNewDividend(address _asset, address _drt) external onlyOwner {
+        dividends[_asset] = _drt;
+
+        emit DividendAdded(_asset, _drt, block.timestamp);
     }
 
     /**
@@ -196,7 +215,14 @@ contract DelegateCreditManager is Ownable {
 
         lendingPool.repay(_asset, repayableAmount, 2, _delegator);
 
-        IDividendRightsToken(drt).burn(_delegator, repayableAmount.div(SHARE_DIVISOR));
+        address dividendsTokenAddress = dividends[_asset];
+
+        require(dividendsTokenAddress != address(0), "notSetDividend!");
+
+        IDividendRightsToken(dividendsTokenAddress).burn(
+            _delegator,
+            repayableAmount.div(SHARE_DIVISOR)
+        );
 
         emit FreeDelegatedCapital(
             _delegator,
@@ -236,8 +262,15 @@ contract DelegateCreditManager is Ownable {
             strategyInfo.amountWorking = strategyInfo.amountWorking.add(
                 amountToBorrow
             );
-            
-            IDividendRightsToken(drt).issue(_delegator, amountToBorrow.div(SHARE_DIVISOR));
+
+            address dividendsTokenAddress = dividends[_asset];
+
+            require(dividendsTokenAddress != address(0), "notSetDividend!");
+
+            IDividendRightsToken(dividendsTokenAddress).issue(
+                _delegator,
+                amountToBorrow.div(SHARE_DIVISOR)
+            );
 
             emit DeployedDelegatedCapital(
                 _delegator,
