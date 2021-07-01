@@ -50,13 +50,17 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
         renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    function decimals() public view virtual override returns (uint8) {
+        return 0;
+    }
+
     /// @dev Issue new `amount` of giths to `beneficiary`
     function issue(address beneficiary, uint256 amount)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         uint256 currentAmount = balanceOf(beneficiary);
-        
+
         ERC20._mint(beneficiary, amount);
 
         _host.callAgreement(
@@ -126,11 +130,14 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
         );
 
         console.log("actualCashAmount: ", actualCashAmount);
+
         _cashToken.transferFrom(msg.sender, address(this), actualCashAmount);
+
         console.log(
             "_cashToken balance: ",
             _cashToken.balanceOf(address(this))
         );
+
         _host.callAgreement(
             _ida,
             abi.encodeWithSelector(
