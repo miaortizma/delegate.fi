@@ -5,4 +5,6 @@ interface IDividendRightsToken {
     function issue(address beneficiary, uint256 amount) external;
 
     function burn(address account, uint256 amount) external;
+
+    function distribute(uint256 cashAmount) external;
 }

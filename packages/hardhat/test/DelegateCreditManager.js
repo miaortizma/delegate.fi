@@ -113,8 +113,6 @@ before(async () => {
     drt.address
   );
 
-  await drt.transferOwnership(delegateCreditManager.address);
-
   const DelegateFund = await ethers.getContractFactory("DelegateFund");
 
   delegateFund = await DelegateFund.deploy();
@@ -126,10 +124,14 @@ before(async () => {
       delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
       delegateCreditManager.address,
-      drt.address
+      drt.address,
     ],
     ethers.utils.parseEther("500000") // Cap deposits up to 500k
   );
+
+  const distributorRole = await drt.DISTRIBUTOR_ROLE();
+  await drt.grantRole(distributorRole, strategy.address);
+  await drt.transferOwnership(delegateCreditManager.address);
 });
 
 describe("DelegateCreditManager", function () {
@@ -375,7 +377,7 @@ describe("DelegateCreditManager", function () {
     );
   });
 
-  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
     await lendingPool
       .connect(first_delegator)
       .withdraw(

@@ -16,6 +16,8 @@ let addr2;
 let addrs;
 let daix;
 let drt;
+let distributorRole;
+let adminRole;
 
 // --- AAVE contracts ---
 let first_delegator, second_delegator, third_delegator;
@@ -76,11 +78,13 @@ before(async () => {
     sf.agreements.ida.address,
   ];
   drt = await DRTFactory.deploy(...drtArgs);
+  distributorRole = await drt.DISTRIBUTOR_ROLE();
+  adminRole = await drt.DEFAULT_ADMIN_ROLE();
 });
 
 describe("Deployment", function () {
   it("Should set the right owner and have initial supply of 0", async () => {
-    expect(await drt.owner()).to.equal(owner.address);
+    expect(await drt.hasRole(adminRole, owner.address));
     expect(await drt.totalSupply()).to.equal(0);
   });
 });
@@ -149,6 +153,7 @@ describe("Transactions", function () {
 
     // approve allowance of DAIx and distribute
     await daix.approve(drt.address, "1" + "0".repeat(42));
+    await drt.grantRole(distributorRole, owner.address);
     await drt.distribute(1000);
 
     expect(await daix.balanceOf(addr1.address)).to.be.eq(500);
@@ -168,9 +173,35 @@ describe("Transactions", function () {
     await daix
       .connect(first_delegator)
       .approve(drt.address, "1" + "0".repeat(42));
+    await drt
+      .connect(first_delegator)
+      .grantRole(distributorRole, first_delegator._address);
     await drt.connect(first_delegator).distribute(100);
 
     expect(await daix.balanceOf(first_delegator._address)).to.be.eq(0);
     expect(await daix.balanceOf(addr1.address)).to.be.eq(1600);
+  });
+  it("Should transfer ownership to contract", async () => {
+    let lendingPool = await ethers.getContractAt(
+      "ILendingPool",
+      addresses[chain].aave.lendingPool
+    );
+    let dataProvider = await ethers.getContractAt(
+      "IProtocolDataProvider",
+      addresses[chain].aave.dataProvider
+    );
+
+    const DelegateCreditManager = await ethers.getContractFactory(
+      "DelegateCreditManager"
+    );
+
+    let delegateCreditManager = await DelegateCreditManager.deploy(
+      lendingPool.address,
+      dataProvider.address,
+      drt.address
+    );
+    await drt
+      .connect(first_delegator)
+      .transferOwnership(delegateCreditManager.address);
   });
 });
