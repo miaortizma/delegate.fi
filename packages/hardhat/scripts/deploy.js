@@ -58,8 +58,7 @@ const main = async () => {
 
   const delegateCreditManager = await deploy("DelegateCreditManager", [
     addresses[chain].aave.lendingPool,
-    addresses[chain].aave.dataProvider,
-    dividendRightsToken.address,
+    addresses[chain].aave.dataProvider
   ]);
 
   const strategy = await deploy("Strategy", [
