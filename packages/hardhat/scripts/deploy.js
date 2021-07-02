@@ -54,11 +54,14 @@ const main = async () => {
   ]);
 
   const delegateFund = await deploy("DelegateFund");
-  const karma = await deploy("Karma");
+  const debtDerivative = await deploy(
+    "DebtDerivative",
+    "www.delegafi.com/derivatedata/{debtDerivativeID}.json"
+  );
 
   const delegateCreditManager = await deploy("DelegateCreditManager", [
     addresses[chain].aave.lendingPool,
-    addresses[chain].aave.dataProvider
+    addresses[chain].aave.dataProvider,
   ]);
 
   const strategy = await deploy("Strategy", [
@@ -69,10 +72,8 @@ const main = async () => {
       dividendRightsToken.address,
     ],
     ethers.utils.parseEther("500000"),
-    0
+    0,
   ]);
-
-  const userReturns = await deploy("UserReturns");
 
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",
