@@ -69,6 +69,7 @@ const main = async () => {
       dividendRightsToken.address,
     ],
     ethers.utils.parseEther("500000"),
+    0
   ]);
 
   const userReturns = await deploy("UserReturns");

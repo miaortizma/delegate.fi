@@ -58,7 +58,7 @@ describe("DelegateFund", function () {
 
     // Advanced in time!
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      present + DELAY_PLUS_TINY_TIME * 2,
+      present + DELAY_PLUS_TINY_TIME * 12,
     ]);
     await ethers.provider.send("evm_mine", []);
 

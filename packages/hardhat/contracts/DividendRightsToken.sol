@@ -120,23 +120,14 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
         external
         onlyRole(DISTRIBUTOR_ROLE)
     {
-        console.log("cashAmount: ", cashAmount);
-
         (uint256 actualCashAmount, ) = _ida.calculateDistribution(
             _cashToken,
             address(this),
             INDEX_ID,
             cashAmount
         );
-
-        console.log("actualCashAmount: ", actualCashAmount);
-
+        
         _cashToken.transferFrom(msg.sender, address(this), actualCashAmount);
-
-        console.log(
-            "_cashToken balance: ",
-            _cashToken.balanceOf(address(this))
-        );
 
         _host.callAgreement(
             _ida,

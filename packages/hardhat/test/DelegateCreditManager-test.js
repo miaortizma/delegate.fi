@@ -3,12 +3,13 @@ const { expect } = require("chai");
 const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 const DAI_WHALE = "0x00000035bB78d26D67f9246350ACaEc232cAb3E3";
+const SECOND_DAI_WHALE = "0x60e8b62C7Da32ff62fcd4Ab934B75d2d28FE7501";
 const WHALE_DEPOSIT_AMOUNT = "500000";
 const DELEGATE_AMOUNTS = ["50000", "100000", "200000"];
 
 const DELAY_ONE_DAY = 86400;
 const YEAR_BLOCKS = 2300000;
-const DAYS_ITERATION = 1;
+const DAYS_ITERATION = 10;
 
 let delegateCreditManager;
 let delegateFund;
@@ -18,7 +19,7 @@ let daiToken, wmaticToken, crvToken, daix;
 // --- AAVE contracts ---
 let lendingPool, dataProvider, debtToken;
 
-let first_delegator, second_delegator, third_delegator;
+let first_delegator, second_delegator;
 
 const addresses = {
   polygon: {
@@ -64,6 +65,12 @@ before(async () => {
     params: [DAI_WHALE],
   });
   first_delegator = ethers.provider.getSigner(DAI_WHALE);
+
+  await hre.network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: [SECOND_DAI_WHALE],
+  });
+  second_delegator = ethers.provider.getSigner(SECOND_DAI_WHALE);
 
   lendingPool = await ethers.getContractAt(
     "ILendingPool",
@@ -127,7 +134,8 @@ before(async () => {
       delegateCreditManager.address,
       drt.address,
     ],
-    ethers.utils.parseEther("500000") // Cap deposits up to 500k
+    ethers.utils.parseEther("500000"), // Cap deposits up to 500k
+    0
   );
 
   const distributorRole = await drt.DISTRIBUTOR_ROLE();
@@ -213,18 +221,15 @@ describe("DelegateCreditManager", function () {
       );
 
     // in theory after executing the above method, now it should exist debt
-    const delegatorAaveDataPostDelegating = await lendingPool.getUserAccountData(
-      DAI_WHALE
-    );
+    const delegatorAaveDataPostDelegating =
+      await lendingPool.getUserAccountData(DAI_WHALE);
 
     console.log(
       `Current delegators ${DAI_WHALE} debt: `,
       ethers.utils.formatEther(delegatorAaveDataPostDelegating.totalDebtETH)
     );
 
-    expect(delegatorAaveDataPostDelegating.totalDebtETH).to.be.gt(
-      ethers.utils.parseEther("3")
-    );
+    expect(delegatorAaveDataPostDelegating.totalDebtETH).to.be.gte(70);
 
     // should output 0, as we max out the allowance, by borrowing I guess via `approveDelegation`
     const currentBorrowAllowance = await debtToken.borrowAllowance(
@@ -249,9 +254,8 @@ describe("DelegateCreditManager", function () {
       ethers.utils.formatEther(amountDelegated.amountDelegated)
     );
 
-    const StrategyAaaveStatusAfterFirstDeposit = await lendingPool.getUserAccountData(
-      strategy.address
-    );
+    const StrategyAaaveStatusAfterFirstDeposit =
+      await lendingPool.getUserAccountData(strategy.address);
 
     console.log(
       "Current collateral deposited in Aave by the strategy: ",
@@ -260,7 +264,7 @@ describe("DelegateCreditManager", function () {
       )
     );
 
-    expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.gt(3);
+    expect(StrategyAaaveStatusAfterFirstDeposit.totalCollateralETH).to.be.eq(0);
 
     await sf.host
       .connect(first_delegator)
@@ -323,7 +327,7 @@ describe("DelegateCreditManager", function () {
         )}`
       );
 
-      expect(wmaticRevenue).to.be.gt(ethers.utils.parseEther("0.1"));
+      expect(wmaticRevenue).to.be.gt(0);
 
       const crvRevenue = await crvToken.balanceOf(delegateFund.address);
       console.log(
@@ -332,7 +336,7 @@ describe("DelegateCreditManager", function () {
         )}`
       );
 
-      expect(crvRevenue).to.be.gt(ethers.utils.parseEther("0.01"));
+      expect(crvRevenue).to.be.gt(0);
     }
 
     const revenueWhaleInDAIx = await daix.balanceOf(DAI_WHALE);
@@ -413,7 +417,7 @@ describe("DelegateCreditManager", function () {
     );
 
     expect(delegatorAaveDataPostUnwinding.totalDebtETH).to.be.lt(
-      ethers.utils.parseEther("0.09")
+      ethers.utils.parseEther(String(0.09 * DAYS_ITERATION))
     );
 
     const totalAssets = await strategy.totalAssets();
@@ -425,54 +429,45 @@ describe("DelegateCreditManager", function () {
     );
   });
 
-  xit("Delegating credit - deposit in Aave via our contract and delegate", async () => {
-    await lendingPool
-      .connect(first_delegator)
-      .withdraw(
-        addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT),
-        DAI_WHALE
-      );
-
-    const delegatorAaveData = await lendingPool.getUserAccountData(DAI_WHALE);
-
-    expect(delegatorAaveData.totalCollateralETH).to.lt(
-      ethers.utils.parseEther("0.1")
+  it("Delegating credit - deposit in Aave via our contract and delegate", async () => {
+    console.log(
+      `Second Delegator ${SECOND_DAI_WHALE} Balance of DAI: `,
+      ethers.utils.formatEther(await daiToken.balanceOf(SECOND_DAI_WHALE))
     );
 
     await daiToken
-      .connect(first_delegator)
+      .connect(second_delegator)
       .approve(
-        delegateCreditManager.address,
-        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
-      );
-
-    await debtToken
-      .connect(first_delegator)
-      .approveDelegation(
         delegateCreditManager.address,
         ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
+    await debtToken
+      .connect(second_delegator)
+      .approveDelegation(
+        delegateCreditManager.address,
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[1])
+      );
+
     await delegateCreditManager
-      .connect(first_delegator)
+      .connect(second_delegator)
       .depositAaveAndDelegate(
         addresses[chain].erc20Tokens.DAI,
         addresses[chain].erc20Tokens.DAI,
-        ethers.utils.parseEther(WHALE_DEPOSIT_AMOUNT)
+        ethers.utils.parseEther(DELEGATE_AMOUNTS[2])
       );
 
     const delegatorAaveDataPostDeposit = await lendingPool.getUserAccountData(
-      DAI_WHALE
+      SECOND_DAI_WHALE
     );
 
     console.log(
-      `Current debt of ${DAI_WHALE} after interacting via -> depositAaveAndDelegate: `,
+      `Current debt of ${SECOND_DAI_WHALE} after interacting via -> depositAaveAndDelegate: `,
       ethers.utils.formatEther(delegatorAaveDataPostDeposit.totalDebtETH)
     );
 
     expect(delegatorAaveDataPostDeposit.totalDebtETH).to.be.gt(
-      ethers.utils.parseEther("70")
+      ethers.utils.parseEther("40")
     );
   });
 });
