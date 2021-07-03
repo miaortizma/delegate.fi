@@ -144,7 +144,7 @@ contract DebtDerivative is Ownable, ERC1155 {
 
         activeLoan[_args.borrower] = true;
 
-        nextOptionId = nextOptionId.add(1);
+        nextDebtDerivativeId = nextDebtDerivativeId.add(1);
 
         emit DerivativeDebtCreated(
             _id,
