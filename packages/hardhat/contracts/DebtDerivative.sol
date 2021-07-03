@@ -33,6 +33,7 @@ contract DebtDerivative is Ownable, ERC1155 {
     uint256 public maxDeadline = 15 days;
     // it could be updated along the system when credit trustworthy relation is created between users and protocol...
     uint256 public maxBorrowable = 100000 ether;
+    uint256 public nextDebtDerivativeId = 0;
 
     mapping(uint256 => DebtDerivativeInfo) public derivateInfo;
     mapping(address => bool) public whitelistedBorrower;
@@ -137,13 +138,13 @@ contract DebtDerivative is Ownable, ERC1155 {
         require(_args.amount > 0, "<0!");
         require(!activeLoan[_args.borrower], "active!");
 
-        uint256 _id = 0; // pendant to create method tracking new ids...
-
         // here we should transfer funds from our creditManager to borrower based on _args...
 
-        _mint(_args.borrower, _id, _args.amount, "");
+        _mint(_args.borrower, nextDebtDerivativeId, _args.amount, "");
 
         activeLoan[_args.borrower] = true;
+
+        nextOptionId = nextOptionId.add(1);
 
         emit DerivativeDebtCreated(
             _id,
