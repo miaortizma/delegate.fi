@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 import "./interface/IRatingOracle.sol";
-
+/*
 contract DebtDerivative is Ownable, ERC1155 {
     using SafeMath for uint256;
 
@@ -157,3 +157,4 @@ contract DebtDerivative is Ownable, ERC1155 {
         return _id;
     }
 }
+*/

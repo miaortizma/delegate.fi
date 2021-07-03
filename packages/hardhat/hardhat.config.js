@@ -61,7 +61,7 @@ module.exports = {
       accounts: {
         mnemonic: mnemonic(),
       },
-      url: process.env.MATIC_MUMBAI_URL,
+      url: "https://rpc-mumbai.maticvigil.com",
       gasPrice: 1000000000,
       chainId: 80001,
     },
@@ -92,8 +92,8 @@ module.exports = {
     apiKey: "PSW8C433Q667DVEX5BCRMGNAH9FSGFZ7Q8",
   },
   mocha: {
-    timeout: 80000
-  }
+    timeout: 80000,
+  },
 };
 
 const DEBUG = false;
