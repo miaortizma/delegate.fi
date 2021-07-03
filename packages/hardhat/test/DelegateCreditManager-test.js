@@ -125,7 +125,7 @@ before(async () => {
 
   delegateFund = await DelegateFund.deploy();
 
-  const Strategy = await ethers.getContractFactory("Strategy");
+  const Strategy = await ethers.getContractFactory("StrategySimplify");
 
   strategy = await Strategy.deploy(
     [

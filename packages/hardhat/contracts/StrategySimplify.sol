@@ -19,7 +19,7 @@ import "./interface/IUniswapV2Router02.sol";
 import {IDividendRightsToken} from "./interface/IDividendRightsToken.sol";
 import {ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperToken.sol";
 
-contract Strategy is Ownable, Pausable {
+contract StrategySimplify is Ownable, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 

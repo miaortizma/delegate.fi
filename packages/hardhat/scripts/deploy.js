@@ -54,17 +54,13 @@ const main = async () => {
   ]);
 
   const delegateFund = await deploy("DelegateFund");
-  const debtDerivative = await deploy(
-    "DebtDerivative",
-    "www.delegafi.com/derivatedata/{debtDerivativeID}.json"
-  );
 
   const delegateCreditManager = await deploy("DelegateCreditManager", [
     addresses[chain].aave.lendingPool,
     addresses[chain].aave.dataProvider,
   ]);
 
-  const strategy = await deploy("Strategy", [
+  const strategySimplify = await deploy("StrategySimplify", [
     [
       delegateFund.address,
       addresses[chain].erc20Tokens.DAI,
@@ -73,6 +69,13 @@ const main = async () => {
     ],
     ethers.utils.parseEther("500000"),
     0,
+  ]);
+
+  const ratingOracle = await deploy("RatingOracle");
+
+  const debtDerivative = await deploy("DebtDerivative", [
+    "www.delegafi.com/derivativedata/{debtDerivativeID}.json",
+    ratingOracle.address,
   ]);
 
   console.log(

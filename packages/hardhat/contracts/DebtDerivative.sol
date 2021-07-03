@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
+import "./interface/IRatingOracle.sol";
+
 contract DebtDerivative is Ownable, ERC1155 {
     using SafeMath for uint256;
 
@@ -21,6 +23,8 @@ contract DebtDerivative is Ownable, ERC1155 {
         uint256 loanDeadline;
     }
 
+    address public oracleAddress;
+
     // likely will be only stablecoins whitelisted (DAI, USDC) or whichever Supertokens may support smoothly...
     address[] public tokens;
 
@@ -32,6 +36,7 @@ contract DebtDerivative is Ownable, ERC1155 {
 
     mapping(uint256 => DebtDerivativeInfo) public derivateInfo;
     mapping(address => bool) public whitelistedBorrower;
+    mapping(address => bool) public activeLoan;
 
     event DerivativeDebtCreated(
         uint256 id,
@@ -41,7 +46,9 @@ contract DebtDerivative is Ownable, ERC1155 {
         uint256 loanDeadline
     );
 
-    constructor(string memory _uri) ERC1155(_uri) {}
+    constructor(string memory _uri, address _oracleAddress) ERC1155(_uri) {
+        oracleAddress = _oracleAddress;
+    }
 
     /// @notice New URI for ERC1155 metadata
     /// @param _newUri The new URI
@@ -53,6 +60,8 @@ contract DebtDerivative is Ownable, ERC1155 {
     /// @param _borrower Potential borrower address
     function setWhitelistedBorrower(address _borrower) external onlyOwner {
         whitelistedBorrower[_borrower] = true;
+
+        IRatingOracle(oracleAddress).initiliasedCreditInfo(_borrower);
     }
 
     /// @notice Set new borrowing cap
@@ -72,9 +81,10 @@ contract DebtDerivative is Ownable, ERC1155 {
         internal
         returns (uint256)
     {
-        // 1. Here we should query our oracle to check what is the user rating -> [0, 100]
-        // 2. Depending on the rating given the user will fall under specific "trust" bracket
-        uint256 borrowerRating = 0;
+        uint256 borrowerRating = IRatingOracle(oracleAddress).getRating(
+            _borrower
+        );
+
         uint256 deadline = 0;
 
         if (borrowerRating <= 25) {
@@ -87,9 +97,9 @@ contract DebtDerivative is Ownable, ERC1155 {
             deadline = maxDeadline;
         }
 
-        require(borrowerRating <= maxDeadline, ">maxDeadline");
+        require(deadline <= maxDeadline, ">maxDeadline");
 
-        return borrowerRating;
+        return deadline;
     }
 
     /// @dev It will generate a new debt derivative ID with a specific deadline based on _borrower credit history check
@@ -124,6 +134,7 @@ contract DebtDerivative is Ownable, ERC1155 {
         returns (uint256)
     {
         require(_args.amount > 0, "<0!");
+        require(!activeLoan[_args.borrower], "active!");
 
         uint256 _id = 0; // pendant to create method tracking new ids...
 
