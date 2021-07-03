@@ -139,9 +139,9 @@ const deploy = async (
   );
   console.log(" ⛽", chalk.grey(extraGasInfo));
 
-  await tenderly.persistArtifacts({
-    name: contractName,
-    address: deployed.address,
+  await tenderlyVerify({
+    contractName,
+    contractAddress: deployed.address,
   });
 
   if (!encoded || encoded.length <= 2) return deployed;
@@ -206,7 +206,8 @@ const tenderlyVerify = async ({ contractName, contractAddress }) => {
     "xDai",
     "POA",
   ];
-  let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
+  //let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
+  let targetNetwork = chain;
 
   if (tenderlyNetworks.includes(targetNetwork)) {
     console.log(
