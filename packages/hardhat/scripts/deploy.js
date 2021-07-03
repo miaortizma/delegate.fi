@@ -46,7 +46,7 @@ const addresses = {
   },
 };
 
-const chain = "mumbai";
+const chain = "polygon";
 
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");
@@ -54,14 +54,14 @@ const main = async () => {
   const sf = new SuperfluidSDK.Framework({
     ethers: ethers.provider,
     resolverAddress: addresses[chain]["superfluid"]["resolver"],
-    tokens: ["fDAI"],
+    tokens: ["DAI"],
   });
   await sf.initialize();
 
   const dividendRightsToken = await deploy("DividendRightsToken", [
     "Dividend Rights Token",
     "DRT",
-    sf.tokens.fDAIx.address,
+    sf.tokens.DAIx.address,
     sf.host.address,
     sf.agreements.ida.address,
   ]);
@@ -207,7 +207,7 @@ const tenderlyVerify = async ({ contractName, contractAddress }) => {
     "POA",
   ];
   //let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
-  let targetNetwork = chain;
+  let targetNetwork = "matic";
 
   if (tenderlyNetworks.includes(targetNetwork)) {
     console.log(

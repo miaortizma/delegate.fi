@@ -2,7 +2,6 @@
 pragma solidity >=0.7.3 <0.9.0;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
 import {ISuperfluid, ISuperToken, SuperAppBase, SuperAppDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
 import {IInstantDistributionAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IInstantDistributionAgreementV1.sol";
 
@@ -126,7 +125,7 @@ contract DividendRightsToken is AccessControl, ERC20, SuperAppBase {
             INDEX_ID,
             cashAmount
         );
-        
+
         _cashToken.transferFrom(msg.sender, address(this), actualCashAmount);
 
         _host.callAgreement(
