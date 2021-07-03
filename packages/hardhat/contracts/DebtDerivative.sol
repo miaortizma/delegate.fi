@@ -106,20 +106,21 @@ contract DebtDerivative is Ownable, ERC1155 {
     /// @param _token Token which will be borrowed
     /// @param _amount Amount asked to be borrowed (thinking that probably should be capped also via oracle historical data!)
     /// @return The Debt Derivative ID
-    function createDebtDerivative(address _token, uint256 _amount)
-        external
-        returns (uint256)
-    {
+    function createDebtDerivative(address _token) external returns (uint256) {
         // likely it will be either voted via governance or after devs clasify the borrower as "safe", bias?
         require(whitelistedBorrower[msg.sender], "notWhitelisted!");
-        require(_amount <= maxBorrowable, ">maxBorrowable");
+
+        uint256 borrowableAmount = IRatingOracle(oracleAddress)
+        .getMaxLoanAmount(msg.sender);
+
+        require(borrowableAmount <= maxBorrowable, ">maxBorrowable");
 
         uint256 _loanDeadline = maxAllowedBorrowerDeadline(msg.sender);
 
         DebtDerivativeArgs memory debtDerivativeArgs = DebtDerivativeArgs({
             borrower: msg.sender,
             token: _token,
-            amount: _amount,
+            amount: borrowableAmount,
             loanDeadline: block.timestamp + _loanDeadline
         });
 
@@ -141,6 +142,8 @@ contract DebtDerivative is Ownable, ERC1155 {
         // here we should transfer funds from our creditManager to borrower based on _args...
 
         _mint(_args.borrower, _id, _args.amount, "");
+
+        activeLoan[_args.borrower] = true;
 
         emit DerivativeDebtCreated(
             _id,
