@@ -86,7 +86,7 @@ const main = async () => {
       0,
     ],
     {
-      gasLimit: 20000000,
+      //   gasLimit: 20000000,
     }
   );
 
@@ -206,8 +206,8 @@ const tenderlyVerify = async ({ contractName, contractAddress }) => {
     "xDai",
     "POA",
   ];
-  //let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
-  let targetNetwork = "matic";
+  let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
+  //let targetNetwork = "matic";
 
   if (tenderlyNetworks.includes(targetNetwork)) {
     console.log(

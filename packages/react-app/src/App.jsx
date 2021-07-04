@@ -299,9 +299,20 @@ function App(props) {
               }}
               to="/"
             >
+              Main
+            </Link>
+          </Menu.Item>
+          <Menu.Item key="/DelegateCreditManager">
+            <Link
+              onClick={() => {
+                setRoute("/DelegateCreditManager");
+              }}
+              to="/DelegateCreditManager"
+            >
               Delegated Credit Manager
             </Link>
           </Menu.Item>
+
           <Menu.Item key="/DelegateFund">
             <Link
               onClick={() => {
@@ -312,55 +323,45 @@ function App(props) {
               Delegate Fund
             </Link>
           </Menu.Item>
-          <Menu.Item key="/Karma">
+
+          <Menu.Item key="/StrategySimplify">
             <Link
               onClick={() => {
-                setRoute("/Karma");
+                setRoute("/StrategySimplify");
               }}
-              to="/Karma"
+              to="/StrategySimplify"
             >
-              Karma
+              Strategy Simplify
             </Link>
           </Menu.Item>
-          <Menu.Item key="/Strategy">
+
+          <Menu.Item key="/DividendRightsToken">
             <Link
               onClick={() => {
-                setRoute("/Strategy");
+                setRoute("/DividendRightsToken");
               }}
-              to="/Strategy"
+              to="/DividendRightsToken"
             >
-              Strategy
+              Dividend Rights Token{" "}
             </Link>
           </Menu.Item>
-          <Menu.Item key="/UserReturns">
+          <Menu.Item key="/RatingOracle">
             <Link
               onClick={() => {
-                setRoute("/UserReturns");
+                setRoute("/RatingOracle");
               }}
-              to="/UserReturns"
+              to="/RatingOracle"
             >
-              User Returns
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="/exampleui">
-            <Link
-              onClick={() => {
-                setRoute("/exampleui");
-              }}
-              to="/exampleui"
-            >
-              ExampleUI
+              Rating Oracle
             </Link>
           </Menu.Item>
         </Menu>
 
         <Switch>
           <Route exact path="/">
-            {/*
-                🎛 this scaffolding is full of commonly used components
-                this <Contract/> component will automatically parse your ABI
-                and give you a form to interact with it locally
-            */}{" "}
+            <div></div>
+          </Route>
+          <Route exact path="/DelegateCreditManager">
             <Contract
               name="DelegateCreditManager"
               signer={userProvider.getSigner()}
@@ -369,7 +370,6 @@ function App(props) {
               blockExplorer={blockExplorer}
             />
           </Route>
-
           <Route exact path="/DelegateFund">
             <Contract
               name="DelegateFund"
@@ -378,57 +378,32 @@ function App(props) {
               address={address}
               blockExplorer={blockExplorer}
             />
-          </Route>
-          <Route exact path="/Karma">
+          </Route>{" "}
+          <Route exact path="/StrategySimplify">
             <Contract
-              name="Karma"
+              name="StrategySimplify"
               signer={userProvider.getSigner()}
               provider={localProvider}
               address={address}
               blockExplorer={blockExplorer}
             />
           </Route>
-
-          <Route exact path="/Strategy">
+          <Route exact path="/DividendRightsToken">
             <Contract
-              name="Strategy"
+              name="DividendRightsToken"
               signer={userProvider.getSigner()}
               provider={localProvider}
               address={address}
               blockExplorer={blockExplorer}
             />
           </Route>
-          <Route exact path="/UserReturns">
+          <Route exact path="/RatingOracle">
             <Contract
-              name="UserReturns"
+              name="RatingOracle"
               signer={userProvider.getSigner()}
               provider={localProvider}
               address={address}
               blockExplorer={blockExplorer}
-            />
-          </Route>
-          <Route path="/DelegateCreditManager"></Route>
-          <Route path="/hints">
-            <Hints
-              address={address}
-              yourLocalBalance={yourLocalBalance}
-              mainnetProvider={mainnetProvider}
-              price={price}
-            />
-          </Route>
-          <Route path="/exampleui">
-            <ExampleUI
-              address={address}
-              userProvider={userProvider}
-              mainnetProvider={mainnetProvider}
-              localProvider={localProvider}
-              yourLocalBalance={yourLocalBalance}
-              price={price}
-              tx={tx}
-              writeContracts={writeContracts}
-              readContracts={readContracts}
-              purpose={purpose}
-              setPurposeEvents={setPurposeEvents}
             />
           </Route>
         </Switch>
