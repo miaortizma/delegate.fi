@@ -2,6 +2,7 @@
 pragma solidity >=0.6.0 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
@@ -9,6 +10,7 @@ import "./interface/IRatingOracle.sol";
 
 contract DebtDerivative is Ownable, ERC1155 {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     struct DebtDerivativeArgs {
         address borrower;
@@ -18,9 +20,13 @@ contract DebtDerivative is Ownable, ERC1155 {
     }
 
     struct DebtDerivativeInfo {
+        address delegator;
+        address borrower;
         address token;
+        uint256 loanedAmount;
         uint256 expecetedProfit;
-        uint256 loanDeadline;
+        uint256 expiration;
+        bool active;
     }
 
     address public oracleAddress;
@@ -138,11 +144,27 @@ contract DebtDerivative is Ownable, ERC1155 {
         require(_args.amount > 0, "<0!");
         require(!activeLoan[_args.borrower], "active!");
 
-        // here we should transfer funds from our creditManager to borrower based on _args...
+        IERC20(_args.token).safeApprove(_args.borrower, _args.amount);
 
-        _mint(_args.borrower, nextDebtDerivativeId, _args.amount, "");
+        IERC20(_args.token).safeTransferFrom(
+            _args.borrower,
+            address(this),
+            _args.amount
+        );
 
         activeLoan[_args.borrower] = true;
+
+        derivateInfo[nextDebtDerivativeId] = DebtDerivativeInfo({
+            delegator: address(0),
+            borrower: _args.borrower,
+            token: _args.token,
+            loanedAmount: _args.amount,
+            expecetedProfit: _args.amount.mul(uint256(600)).div(uint256(10000)),
+            expiration: block.timestamp.add(_args.loanDeadline),
+            active: true
+        });
+
+        _mint(_args.borrower, nextDebtDerivativeId, _args.amount, "");
 
         nextDebtDerivativeId = nextDebtDerivativeId.add(1);
 
