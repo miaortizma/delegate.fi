@@ -8,6 +8,20 @@ const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 const R = require("ramda");
 
 const addresses = {
+  hardhat: {
+    erc20Tokens: {
+      DAI: "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",
+    },
+    aave: {
+      lendingPool: "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf",
+      dataProvider: "0x7551b5D2763519d4e37e8B81929D336De671d46d",
+      debtToken: "0x75c4d1Fb84429023170086f06E682DcbBF537b7d",
+    },
+    superfluid: {
+      resolver: "0xE0cc76334405EE8b39213E620587d815967af39C",
+      tokens: ["DAI"],
+    },
+  },
   polygon: {
     erc20Tokens: {
       DAI: "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",
@@ -19,6 +33,7 @@ const addresses = {
     },
     superfluid: {
       resolver: "0xE0cc76334405EE8b39213E620587d815967af39C",
+      tokens: ["DAI"],
     },
   },
   mumbai: {
@@ -32,6 +47,7 @@ const addresses = {
     },
     superfluid: {
       resolver: "0x8C54C83FbDe3C59e59dd6E324531FB93d4F504d3",
+      tokens: ["fDAI"],
     },
   },
   ethereum: {
@@ -46,22 +62,36 @@ const addresses = {
   },
 };
 
-const chain = "polygon";
-
 const main = async () => {
   console.log("\n\n 📡 Deploying...\n");
+  const [deployer] = await ethers.getSigners();
+  const chain = process.env.HARDHAT_NETWORK || config.defaultNetwork;
+
+  console.log("Deploying contracts with the account:", deployer.address);
+
+  console.log(
+    "Account balance:",
+    ethers.utils.formatEther(await deployer.getBalance())
+  );
 
   const sf = new SuperfluidSDK.Framework({
     ethers: ethers.provider,
     resolverAddress: addresses[chain]["superfluid"]["resolver"],
-    tokens: ["DAI"],
+    tokens: addresses[chain]["superfluid"]["tokens"],
   });
   await sf.initialize();
+
+  let token;
+  if (chain === "mumbai") {
+    token = sf.tokens.fDAIx.address;
+  } else {
+    token = sf.tokens.DAIx.address;
+  }
 
   const dividendRightsToken = await deploy("DividendRightsToken", [
     "Dividend Rights Token",
     "DRT",
-    sf.tokens.DAIx.address,
+    token,
     sf.host.address,
     sf.agreements.ida.address,
   ]);
@@ -86,18 +116,17 @@ const main = async () => {
       0,
     ],
     {
-      gasLimit: 20000000,
+      //   gasLimit: 20000000,
     }
   );
 
   const ratingOracle = await deploy("RatingOracle");
 
-  /*const debtDerivative = await deploy("DebtDerivative", [
+  /* const debtDerivative = await deploy("DebtDerivative", [
     "www.delegafi.com/derivativedata/{debtDerivativeID}.json",
     ratingOracle.address,
   ]);
   */
-
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",
     chalk.blue("packages/hardhat/artifacts/"),
@@ -139,10 +168,10 @@ const deploy = async (
   );
   console.log(" ⛽", chalk.grey(extraGasInfo));
 
-  await tenderlyVerify({
+  /*await tenderlyVerify({
     contractName,
     contractAddress: deployed.address,
-  });
+  });*/
 
   if (!encoded || encoded.length <= 2) return deployed;
   fs.writeFileSync(`artifacts/${contractName}.args`, encoded.slice(2));
@@ -206,8 +235,7 @@ const tenderlyVerify = async ({ contractName, contractAddress }) => {
     "xDai",
     "POA",
   ];
-  //let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
-  let targetNetwork = "matic";
+  let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork;
 
   if (tenderlyNetworks.includes(targetNetwork)) {
     console.log(

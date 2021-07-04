@@ -12,8 +12,8 @@ const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 
 //
 // Select the network you want to deploy to here:
-//
-const defaultNetwork = "localhost";
+
+const defaultNetwork = "hardhat";
 
 function mnemonic() {
   try {
@@ -53,8 +53,8 @@ module.exports = {
       accounts: {
         mnemonic: mnemonic(),
       },
+      url: "https://rpc-mainnet.maticvigil.com",
       gasPrice: 1000000000,
-      url: process.env.MATIC_MAINNET_URL,
       chainId: 137,
     },
     mumbai: {
