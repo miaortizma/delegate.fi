@@ -21,6 +21,19 @@ const addresses = {
       resolver: "0xE0cc76334405EE8b39213E620587d815967af39C",
     },
   },
+  polygonMumbai: {
+    erc20Tokens: {
+      DAI: "0x001B3B4d0F3714Ca98ba10F6042DaEbF0B1B7b6F",
+    },
+    aave: {
+      lendingPool: "0x9198F13B08E299d85E096929fA9781A1E3d5d827",
+      dataProvider: "0xFA3bD19110d986c5e5E9DD5F69362d05035D045B",
+      debtToken: "0x6D29322ba6549B95e98E9B08033F5ffb857f19c5",
+    },
+    superfluid: {
+      resolver: "0x8C54C83FbDe3C59e59dd6E324531FB93d4F504d3",
+    },
+  },
   ethereum: {
     erc20Tokens: {
       DAI: "0x6b175474e89094c44da98b954eedeac495271d0f",
@@ -72,6 +85,16 @@ const main = async () => {
   ]);
 
   const ratingOracle = await deploy("RatingOracle");
+
+  await delegateCreditManager.setNewDividend(
+    addresses[chain].erc20Tokens.DAI,
+    dividendRightsToken.address
+  );
+
+  await delegateCreditManager.setNewStrategy(
+    addresses[chain].erc20Tokens.DAI,
+    strategySimplify.address
+  );
 
   const debtDerivative = await deploy("DebtDerivative", [
     "www.delegafi.com/derivativedata/{debtDerivativeID}.json",
