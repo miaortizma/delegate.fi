@@ -14,9 +14,11 @@ Use credit delegation from Aave to maximized returns to users who has idle borro
 
 - `Strategy.sol` Strategy contract it will be where initially the capital will be deployed. As a target we can look into what the gitcoin described for their bounty. Link shared on the group.
 
-- `UserReturns.sol` Tracking User Returns contract maybe here could be sent the returns from the strategy contract and pull out using the Superfluid stream feature somehow directly into the users wallet upon certain condition that makes economical sense. The users are going to be tracked via a mapping type variable within the Delegated Credit Manager, which could be a point to a struct, so it can be given on a pro-rata manner. Otherwise, it will need to be claimable from here.
+- `DividenRightsToken.sol` DRT contract would be defined using different underlyings, most likely stablecoins, this contract would provide the tracking shares to the user delegating to the protocol credit. This shares would provide right to subcribe to the IDA to receive automatically the revenue from different strategies after harvest has been triggered.
 
-- `Karma.sol` Dashboard for outsider borrowers contract @ElocRemarc is very much interested in this front. Feel free to dive deeper.
+- `RatingOracle.sol` The oracle will provide most recent credit details for the whitelisted address within our protocol. The data provide to each address would be rating, maxLoanAmount, profits, defaulted and initialised. It could be re-used by other protocols to consider the trustworthy of a specific address based on data on-chain.
+
+- `DebtDerivative.sol` ERC1155 contract which will mint the specifications to the borrower depending on the type of uncollateralised loan, it will affect the borrower credit history recorded in the RatingOracle.sol depending if on each operation is defaulting or behaving accordangly. The whitelisted users most likely would be added via governance voting. Ideally this same ERC1155 could create a connection between delegators and borrowers, so the minted ERC1155 with its own specifications could behave as a cash flow or re-sell it on secondary market depending on RatingOracle data. Each ERC1155 could represent an intrinsic value.
 
 ---
 

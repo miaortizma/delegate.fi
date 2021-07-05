@@ -2,13 +2,16 @@
 pragma solidity >=0.6.0 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 import "./interface/IRatingOracle.sol";
-/*
+
 contract DebtDerivative is Ownable, ERC1155 {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     struct DebtDerivativeArgs {
         address borrower;
@@ -18,20 +21,23 @@ contract DebtDerivative is Ownable, ERC1155 {
     }
 
     struct DebtDerivativeInfo {
+        address delegator;
+        address borrower;
         address token;
+        uint256 loanedAmount;
         uint256 expecetedProfit;
-        uint256 loanDeadline;
+        uint256 expiration;
+        bool active;
     }
 
     address public oracleAddress;
 
-    // likely will be only stablecoins whitelisted (DAI, USDC) or whichever Supertokens may support smoothly...
+    // Likely will be only stablecoins whitelisted (DAI, USDC) or whichever Supertokens may be available
     address[] public tokens;
 
     uint256 public DEADLINE_INTERVALS = 4000;
-    // depending on trust and rate of the borrower maybe more days could be provided, maybe...
-    uint256 public maxDeadline = 15 days;
-    // it could be updated along the system when credit trustworthy relation is created between users and protocol...
+    uint256 public maxDeadline = 30 days;
+    // It could be updated along the system when credit trustworthy relation is created between users and protocol
     uint256 public maxBorrowable = 100000 ether;
     uint256 public nextDebtDerivativeId = 0;
 
@@ -55,6 +61,13 @@ contract DebtDerivative is Ownable, ERC1155 {
     /// @param _newUri The new URI
     function setURI(string memory _newUri) external onlyOwner {
         _setURI(_newUri);
+    }
+
+    /// @notice Update max borrowable amount
+    /// @param _maxBorrowable New max amount to allow to be borrowed
+    function setMaxBorrowable(uint256 _maxBorrowable) external onlyOwner {
+        require(_maxBorrowable > maxBorrowable, "<maxBorrowable!");
+        maxBorrowable = _maxBorrowable;
     }
 
     /// @notice New borrower address to be whitelisted
@@ -105,7 +118,6 @@ contract DebtDerivative is Ownable, ERC1155 {
 
     /// @dev It will generate a new debt derivative ID with a specific deadline based on _borrower credit history check
     /// @param _token Token which will be borrowed
-    /// @param _amount Amount asked to be borrowed (thinking that probably should be capped also via oracle historical data!)
     /// @return The Debt Derivative ID
     function createDebtDerivative(address _token) external returns (uint256) {
         // likely it will be either voted via governance or after devs clasify the borrower as "safe", bias?
@@ -138,13 +150,33 @@ contract DebtDerivative is Ownable, ERC1155 {
         require(_args.amount > 0, "<0!");
         require(!activeLoan[_args.borrower], "active!");
 
-        // here we should transfer funds from our creditManager to borrower based on _args...
+        // The liquidity available probably needs to be accounted from those delegating to our system, but we should avoid to be idle in a internal pool
+        // Probably some sequencing as FIFO vibe to be able to grab the full amount requested by the borrower?. More tricky as for DebtDerivativeInfo struct
+        // multi delegator[] ??
 
-        _mint(_args.borrower, nextDebtDerivativeId, _args.amount, "");
+        uint256 _id = nextDebtDerivativeId;
+
+        IERC20(_args.token).safeApprove(_args.borrower, _args.amount);
+
+        IERC20(_args.token).safeTransferFrom(
+            _args.borrower,
+            address(this),
+            _args.amount
+        );
 
         activeLoan[_args.borrower] = true;
 
-        nextDebtDerivativeId = nextDebtDerivativeId.add(1);
+        derivateInfo[_id] = DebtDerivativeInfo({
+            delegator: address(0),
+            borrower: _args.borrower,
+            token: _args.token,
+            loanedAmount: _args.amount,
+            expecetedProfit: _args.amount.mul(uint256(600)).div(uint256(10000)),
+            expiration: block.timestamp.add(_args.loanDeadline),
+            active: true
+        });
+
+        _mint(_args.borrower, _id, _args.amount, "");
 
         emit DerivativeDebtCreated(
             _id,
@@ -154,7 +186,8 @@ contract DebtDerivative is Ownable, ERC1155 {
             _args.loanDeadline
         );
 
+        nextDebtDerivativeId = nextDebtDerivativeId.add(1);
+
         return _id;
     }
 }
-*/
