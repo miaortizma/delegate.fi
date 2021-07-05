@@ -49,12 +49,12 @@ module.exports = {
         block: 16227133,
       },
     },
-    matic: {
+    polygon: {
       accounts: {
         mnemonic: mnemonic(),
       },
       url: "https://rpc-mainnet.maticvigil.com",
-      gasPrice: 1000000000,
+      gasPrice: 8000000000,
       chainId: 137,
     },
     mumbai: {
@@ -89,7 +89,7 @@ module.exports = {
     ],
   },
   etherscan: {
-    apiKey: "PSW8C433Q667DVEX5BCRMGNAH9FSGFZ7Q8",
+    apiKey: "6CWJHZH5A1P63IN31JYQGNCZ5B35SUY1FZ",
   },
   mocha: {
     timeout: 80000,

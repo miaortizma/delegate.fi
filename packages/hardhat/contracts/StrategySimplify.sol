@@ -97,7 +97,6 @@ contract StrategySimplify is Ownable, Pausable {
         (address aToken, , ) = provider.getReserveTokensAddresses(want);
 
         aWant = aToken;
-
         IERC20(want).safeApprove(address(lendingPool), type(uint256).max);
         IERC20(aWant).safeApprove(address(curvePool), type(uint256).max);
         IERC20(want).safeApprove(address(DAIx), type(uint256).max);

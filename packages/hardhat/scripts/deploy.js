@@ -68,13 +68,15 @@ const main = async () => {
   const chain = process.env.HARDHAT_NETWORK || config.defaultNetwork;
 
   console.log("Deploying contracts with the account:", deployer.address);
+  console.log("nonce:", await deployer.getTransactionCount());
+  const nonce = await deployer.getTransactionCount();
 
   console.log(
     "Account balance:",
     ethers.utils.formatEther(await deployer.getBalance())
   );
 
-  const sf = new SuperfluidSDK.Framework({
+  /*const sf = new SuperfluidSDK.Framework({
     ethers: ethers.provider,
     resolverAddress: addresses[chain]["superfluid"]["resolver"],
     tokens: addresses[chain]["superfluid"]["tokens"],
@@ -88,50 +90,69 @@ const main = async () => {
     token = sf.tokens.DAIx.address;
   }
 
-  const dividendRightsToken = await deploy("DividendRightsToken", [
+  const DRTargs = [
     "Dividend Rights Token",
     "DRT",
     token,
     sf.host.address,
     sf.agreements.ida.address,
-  ]);
+  ];
+
+  const dividendRightsToken = await deploy(...DRTargs, "DividendRightsToken");
+
+  await dividendRightsToken.deployTransaction.wait();
 
   const delegateFund = await deploy("DelegateFund");
+
+  await delegateFund.deployTransaction.wait();
 
   const delegateCreditManager = await deploy("DelegateCreditManager", [
     addresses[chain].aave.lendingPool,
     addresses[chain].aave.dataProvider,
-  ]);
-
+  ]);*/
+  const strategySimplify = await ethers.getContractAt(
+    "StrategySimplify",
+    "0xe9B569cCB9F14B8e29F15482ae20b18104aa91c0"
+  );
+  await strategySimplify.transferOwnership(
+    "0xc1B7a5b8dC9F7ae4ae2146e331f39552116eCDeb"
+  );
+  /*
   const strategySimplify = await deploy(
     "StrategySimplify",
     [
       [
-        delegateFund.address,
+        "0x147BC33362967204e494EbA5b8FD82adcbBdE2e5",
         addresses[chain].erc20Tokens.DAI,
-        delegateCreditManager.address,
-        dividendRightsToken.address,
+        "0x401737344419c972771DcD489344De9AD6013213",
+        "0xCd95c7fd1d719fCaF97cf5a01C23A4FE6C1872F7",
       ],
       ethers.utils.parseEther("500000"),
       0,
     ],
     {
-      //   gasLimit: 20000000,
+      gasLimit: 5000000,
+      nonce,
+      gasPrice: 20 * 10 ** 9,
     }
   );
+  await strategySimplify.deployTransaction.wait();
+  */
+  /*
+  console.log(strategySimplify.deployTransaction);
 
   const ratingOracle = await deploy("RatingOracle");
 
-  /* const debtDerivative = await deploy("DebtDerivative", [
+   const debtDerivative = await deploy("DebtDerivative", [
     "www.delegafi.com/derivativedata/{debtDerivativeID}.json",
     ratingOracle.address,
   ]);
-  */
   console.log(
     " 💾  Artifacts (address, abi, and args) saved to: ",
     chalk.blue("packages/hardhat/artifacts/"),
     "\n\n"
   );
+  */
 };
 
 const deploy = async (
